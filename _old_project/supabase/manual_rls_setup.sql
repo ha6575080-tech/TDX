@@ -1,0 +1,17 @@
+-- =============================================================
+-- OBSOLETE — SUPERSEDED BY VERSIONED MIGRATIONS
+-- =============================================================
+-- This file is kept for historical/reference purposes only.
+-- The single source of truth is the versioned migration set:
+--
+--   supabase/migrations/001_initial_schema.sql
+--   supabase/migrations/002_categories.sql
+--   supabase/migrations/003_transactions.sql
+--   supabase/migrations/004_investments.sql
+--   supabase/migrations/005_rls.sql
+--   supabase/migrations/006_indexes.sql
+--   supabase/migrations/007_user_bootstrap.sql
+--
+-- Do NOT use this script for new deployments. Apply migrations via
+-- `supabase db push` or your CI/CD migration pipeline instead.
+-- =============================================================

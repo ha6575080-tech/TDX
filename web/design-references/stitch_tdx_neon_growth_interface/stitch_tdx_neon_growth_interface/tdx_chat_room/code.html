@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TDX Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline": "#8c947c",
+                        "surface-container-lowest": "#110e06",
+                        "secondary-fixed-dim": "#e9c349",
+                        "tertiary-fixed-dim": "#aacfb9",
+                        "tertiary": "#d2f9e1",
+                        "surface-container": "#231f16",
+                        "surface-dim": "#16130a",
+                        "on-background": "#e9e2d2",
+                        "outline-variant": "#424936",
+                        "secondary": "#e9c349",
+                        "on-primary": "#233600",
+                        "surface": "#16130a",
+                        "primary-fixed-dim": "#9cd927",
+                        "on-surface": "#e9e2d2",
+                        "primary-fixed": "#b7f646",
+                        "surface-bright": "#3d392e",
+                        "primary": "#d0ff82",
+                        "on-secondary-fixed-variant": "#574500",
+                        "secondary-container": "#af8d11",
+                        "error": "#ffb4ab",
+                        "on-surface-variant": "#c2cab0",
+                        "surface-tint": "#9cd927",
+                        "on-tertiary-fixed-variant": "#2c4d3d",
+                        "inverse-primary": "#476800",
+                        "on-error-container": "#ffdad6",
+                        "on-error": "#690005",
+                        "surface-container-low": "#1e1b12",
+                        "surface-container-highest": "#38352a",
+                        "on-primary-fixed-variant": "#344e00",
+                        "error-container": "#93000a",
+                        "tertiary-container": "#b6dcc5",
+                        "on-secondary-fixed": "#241a00",
+                        "on-tertiary": "#153727",
+                        "on-secondary": "#3c2f00",
+                        "surface-container-high": "#2d2a1f",
+                        "inverse-surface": "#e9e2d2",
+                        "surface-variant": "#38352a",
+                        "on-tertiary-container": "#406250",
+                        "background": "#16130a",
+                        "on-secondary-container": "#342800",
+                        "on-tertiary-fixed": "#002113",
+                        "on-primary-fixed": "#131f00",
+                        "tertiary-fixed": "#c5ebd4",
+                        "on-primary-container": "#446400",
+                        "inverse-on-surface": "#343026",
+                        "primary-container": "#a8e636",
+                        "secondary-fixed": "#ffe088"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "lg": "24px",
+                        "xl": "40px",
+                        "container-padding": "20px",
+                        "gutter": "16px",
+                        "base": "4px",
+                        "xs": "4px",
+                        "md": "16px"
+                    },
+                    "fontFamily": {
+                        "title-md": ["Outfit"],
+                        "body-lg": ["Outfit"],
+                        "headline-lg-mobile": ["Outfit"],
+                        "headline-lg": ["Outfit"],
+                        "body-md": ["Outfit"],
+                        "label-md": ["Outfit"],
+                        "label-sm": ["Outfit"],
+                        "headline-xl": ["Outfit"]
+                    },
+                    "fontSize": {
+                        "title-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-xl": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B2E1F;
+            color: #e9e2d2;
+        }
+        .glass-panel {
+            background: rgba(22, 19, 10, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(208, 255, 130, 0.4);
+        }
+        .neon-text-glow {
+            text-shadow: 0 0 10px rgba(208, 255, 130, 0.6);
+        }
+        .bouncy-transition {
+            transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        /* Custom Scrollbar for chat area */
+        .chat-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-scroll::-webkit-scrollbar-track {
+            background: rgba(22, 19, 10, 0.2);
+        }
+        .chat-scroll::-webkit-scrollbar-thumb {
+            background: rgba(208, 255, 130, 0.3);
+            border-radius: 4px;
+        }
+        .chat-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(208, 255, 130, 0.5);
+        }
+    </style>
+</head>
+<body class="h-screen w-full flex flex-col font-body-md overflow-hidden bg-[#0B2E1F]">
+<!-- TopNavBar (Hidden on Mobile, Visible on Desktop) -->
+<nav class="hidden md:flex justify-between items-center px-container-padding h-16 w-full max-w-7xl mx-auto fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-md shadow-primary/10">
+<div class="font-headline-lg font-bold text-primary">TDX Investment</div>
+<div class="flex items-center gap-lg">
+<!-- Navigation Items (Chat is active) -->
+<a class="font-title-md text-title-md text-on-surface-variant hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg bouncy-transition hover:scale-95" href="#">Home</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg bouncy-transition hover:scale-95" href="#">Tasks</a>
+<a class="font-title-md text-title-md text-on-surface-variant hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg bouncy-transition hover:scale-95" href="#">Stats</a>
+<a class="font-title-md text-title-md text-secondary font-bold hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg bouncy-transition scale-95" href="#">Chat</a>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-2 text-primary hover:bg-surface-bright rounded-full transition-colors bouncy-transition hover:scale-95">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+<button class="p-2 text-primary hover:bg-surface-bright rounded-full transition-colors bouncy-transition hover:scale-95">
+<span class="material-symbols-outlined" data-icon="task_alt">task_alt</span>
+</button>
+</div>
+</nav>
+<!-- Main Chat Canvas -->
+<main class="flex-1 flex flex-col relative w-full max-w-7xl mx-auto pt-0 md:pt-16 pb-24 md:pb-0 h-full">
+<!-- Chat Header -->
+<header class="glass-panel p-container-padding flex items-center justify-between sticky top-0 z-40 rounded-b-xl mx-container-padding md:mx-0 mt-4 md:mt-lg mb-sm">
+<div class="flex items-center gap-md">
+<div class="relative w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img class="object-cover w-full h-full" data-alt="A highly detailed close-up portrait of a professional customer support agent in a high-tech, neon-lit environment. The lighting is moody with deep greens and bright lime accents reflecting off their face. They are wearing a sleek, modern headset. The overall vibe is premium gaming meets futuristic finance." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAH8XGwZ0LE_MUUBtxMYo2FCDDba-kjP_G5U2tKJ_2eKLzAg9RLeriDTtLTtOJzLFdGzO0WqjxC0ZeU0q8rRbjcJIaDknoi6xaK8xFIwpZcygjfS15s_LihABj5Qi_oqa5LTHuDGyy7DjNoUZnSopghYbGzUMys-KbxgXqAskEUNMDTV4cbjGbhJjEV5QDx7KiQPVq_xe6C4zo6aAkONj-s_FbcEjbPAiI9pKaNo5n74rCMkA1U-UFd"/>
+</div>
+<div>
+<h1 class="font-title-md text-title-md text-on-surface m-0">TDX Support</h1>
+<div class="flex items-center gap-2 mt-1">
+<span class="w-2 h-2 rounded-full bg-primary neon-glow animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-primary">Online</span>
+</div>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-bright">
+<span class="material-symbols-outlined" data-icon="more_vert">more_vert</span>
+</button>
+</header>
+<!-- Chat Messages Area -->
+<div class="flex-1 overflow-y-auto chat-scroll p-container-padding flex flex-col gap-lg">
+<!-- Support Message (Glass White) -->
+<div class="flex flex-col gap-1 items-start max-w-[85%] md:max-w-[70%]">
+<div class="flex items-center gap-2 mb-1 pl-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">TDX System</span>
+<span class="font-label-sm text-label-sm text-outline-variant">10:42 AM</span>
+</div>
+<div class="glass-panel text-on-surface p-4 rounded-2xl rounded-tl-sm shadow-md">
+<p class="m-0">Welcome to TDX Support. How can we assist you with your investments today?</p>
+</div>
+</div>
+<!-- User Message (Glossy Lime) -->
+<div class="flex flex-col gap-1 items-end max-w-[85%] md:max-w-[70%] self-end mt-4">
+<div class="flex items-center gap-2 mb-1 pr-2">
+<span class="font-label-sm text-label-sm text-outline-variant">10:45 AM</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">You</span>
+</div>
+<div class="bg-gradient-to-br from-primary to-primary-container text-on-primary-container p-4 rounded-2xl rounded-tr-sm shadow-[0_4px_15px_rgba(208,255,130,0.3)] border-t border-white/40 border-l border-white/20 relative overflow-hidden group cursor-default">
+<!-- Glossy highlight overlay -->
+<div class="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></div>
+<p class="m-0 relative z-10 font-medium">I need help understanding the new yield farming metrics on my dashboard.</p>
+</div>
+</div>
+<!-- Support Message (Glass White) -->
+<div class="flex flex-col gap-1 items-start max-w-[85%] md:max-w-[70%] mt-4">
+<div class="flex items-center gap-2 mb-1 pl-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Agent Sarah</span>
+<span class="font-label-sm text-label-sm text-outline-variant">10:47 AM</span>
+</div>
+<div class="glass-panel text-on-surface p-4 rounded-2xl rounded-tl-sm shadow-md">
+<p class="m-0 mb-2">I can certainly help with that. The new metrics reflect a compounded daily rate rather than the previous simple calculation.</p>
+<p class="m-0">Would you like me to break down a specific asset's performance?</p>
+</div>
+</div>
+<!-- User Message (Glossy Lime) -->
+<div class="flex flex-col gap-1 items-end max-w-[85%] md:max-w-[70%] self-end mt-4">
+<div class="flex items-center gap-2 mb-1 pr-2">
+<span class="font-label-sm text-label-sm text-outline-variant">10:48 AM</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">You</span>
+</div>
+<div class="bg-gradient-to-br from-primary to-primary-container text-on-primary-container p-4 rounded-2xl rounded-tr-sm shadow-[0_4px_15px_rgba(208,255,130,0.3)] border-t border-white/40 border-l border-white/20 relative overflow-hidden group cursor-default">
+<div class="absolute top-0 left-0 right-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent pointer-events-none"></div>
+<p class="m-0 relative z-10 font-medium">Yes, please check asset #882-Alpha.</p>
+</div>
+</div>
+<!-- Typing Indicator -->
+<div class="flex flex-col gap-1 items-start max-w-[85%] md:max-w-[70%] mt-2">
+<div class="glass-panel p-3 rounded-2xl rounded-tl-sm shadow-md flex gap-1 items-center">
+<span class="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 0ms"></span>
+<span class="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 150ms"></span>
+<span class="w-2 h-2 bg-on-surface-variant rounded-full animate-bounce" style="animation-delay: 300ms"></span>
+</div>
+</div>
+</div>
+<!-- Chat Input Area (Floating) -->
+<div class="px-container-padding pb-container-padding pt-4 sticky bottom-0 z-40 bg-gradient-to-t from-[#0B2E1F] via-[#0B2E1F]/90 to-transparent md:bg-none">
+<div class="glass-panel p-2 rounded-2xl flex items-end gap-2 shadow-[0_-5px_20px_rgba(0,0,0,0.3)] mx-auto max-w-4xl relative overflow-hidden">
+<!-- Inner glow line at top -->
+<div class="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-primary/30 to-transparent"></div>
+<button class="p-3 text-on-surface-variant hover:text-primary hover:bg-surface-bright rounded-xl transition-colors bouncy-transition hover:scale-95 flex-shrink-0 min-h-[56px] flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="attach_file">attach_file</span>
+</button>
+<div class="flex-1 relative">
+<textarea class="w-full bg-[#051a11] text-on-surface border border-outline-variant/30 rounded-xl px-4 py-3 min-h-[56px] max-h-[120px] resize-none focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors font-body-md shadow-inner" placeholder="Type your message..." rows="1"></textarea>
+</div>
+<button class="p-3 bg-gradient-to-br from-primary to-primary-container text-on-primary-container rounded-xl shadow-[0_4px_10px_rgba(208,255,130,0.3)] border-t border-white/50 border-l border-white/20 bouncy-transition hover:scale-95 active:scale-90 flex-shrink-0 min-h-[56px] flex items-center justify-center group relative overflow-hidden">
+<div class="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+<span class="material-symbols-outlined font-bold" data-icon="send" data-weight="fill" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Visible on Mobile, Hidden on Desktop) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container-highest/90 backdrop-blur-lg rounded-t-xl shadow-[0_-4px_10px_rgba(0,0,0,0.3)] border-t-0">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="home">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="checklist">checklist</span>
+<span class="font-label-sm text-label-sm mt-1">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined text-[24px]" data-icon="monitoring">monitoring</span>
+<span class="font-label-sm text-label-sm mt-1">Stats</span>
+</a>
+<!-- Active Chat Tab -->
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-2 shadow-[0_0_15px_rgba(156,217,39,0.4)] scale-110 duration-250" href="#" style="transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);">
+<span class="material-symbols-outlined text-[24px]" data-icon="chat" data-weight="fill" style="font-variation-settings: 'FILL' 1;">chat</span>
+<span class="font-label-sm text-label-sm mt-1 font-bold">Chat</span>
+</a>
+</nav>
+<script>
+        // Auto-resize textarea
+        const textarea = document.querySelector('textarea');
+        textarea.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.scrollHeight > 120) {
+                 this.style.overflowY = 'auto';
+            } else {
+                 this.style.overflowY = 'hidden';
+            }
+        });
+    </script>
+</body></html>

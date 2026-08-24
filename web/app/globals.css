@@ -1,0 +1,289 @@
+@import "tailwindcss";
+
+@theme {
+  /* ===== Neon Growth Design Tokens ===== */
+  --color-surface: #16130a;
+  --color-surface-dim: #16130a;
+  --color-surface-bright: #3d392e;
+  --color-surface-container-lowest: #110e06;
+  --color-surface-container-low: #1e1b12;
+  --color-surface-container: #231f16;
+  --color-surface-container-high: #2d2a1f;
+  --color-surface-container-highest: #38352a;
+  --color-on-surface: #e9e2d2;
+  --color-on-surface-variant: #c2cab0;
+  --color-inverse-surface: #e9e2d2;
+  --color-inverse-on-surface: #343026;
+  --color-outline: #8c947c;
+  --color-outline-variant: #424936;
+  --color-surface-tint: #9cd927;
+  --color-primary: #d0ff82;
+  --color-on-primary: #233600;
+  --color-primary-container: #a8e636;
+  --color-on-primary-container: #446400;
+  --color-inverse-primary: #476800;
+  --color-primary-fixed: #b7f646;
+  --color-primary-fixed-dim: #9cd927;
+  --color-on-primary-fixed: #131f00;
+  --color-on-primary-fixed-variant: #344e00;
+  --color-secondary: #e9c349;
+  --color-on-secondary: #3c2f00;
+  --color-secondary-container: #af8d11;
+  --color-on-secondary-container: #342800;
+  --color-secondary-fixed: #ffe088;
+  --color-secondary-fixed-dim: #e9c349;
+  --color-on-secondary-fixed: #241a00;
+  --color-on-secondary-fixed-variant: #574500;
+  --color-tertiary: #d2f9e1;
+  --color-on-tertiary: #153727;
+  --color-tertiary-container: #b6dcc5;
+  --color-on-tertiary-container: #406250;
+  --color-tertiary-fixed: #c5ebd4;
+  --color-tertiary-fixed-dim: #aacfb9;
+  --color-on-tertiary-fixed: #002113;
+  --color-on-tertiary-fixed-variant: #2c4d3d;
+  --color-error: #ffb4ab;
+  --color-on-error: #690005;
+  --color-error-container: #93000a;
+  --color-on-error-container: #ffdad6;
+  --color-background: #16130a;
+  --color-on-background: #e9e2d2;
+  --color-surface-variant: #38352a;
+
+  /* Base canvas (Level 0) */
+  --color-base: #0b2e1f;
+
+  /* Typography */
+  --font-sans: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+
+  /* Spacing */
+  --spacing-container-padding: 20px;
+  --spacing-gutter: 16px;
+
+  /* Radius */
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+}
+
+/* ===== Base ===== */
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #0b2e1f;
+  background-image:
+    radial-gradient(circle at 15% 50%, rgba(156, 217, 39, 0.05), transparent 25%),
+    radial-gradient(circle at 85% 30%, rgba(233, 195, 73, 0.05), transparent 25%);
+  background-attachment: fixed;
+  min-height: 100vh;
+  color: var(--color-on-surface);
+  font-family: var(--font-outfit), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Urdu (RTL) — use Noto Nastaliq Urdu */
+html[lang="ur"] body {
+  font-family: var(--font-urdu), "Noto Nastaliq Urdu", var(--font-outfit), sans-serif;
+  line-height: 1.8;
+}
+
+html[lang="ur"] .font-headline,
+html[lang="ur"] h1,
+html[lang="ur"] h2,
+html[lang="ur"] h3 {
+  font-family: var(--font-urdu), "Noto Nastaliq Urdu", var(--font-outfit), sans-serif;
+}
+
+/* ===== Custom Scrollbars ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(22, 19, 10, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(66, 73, 54, 0.5);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(140, 148, 124, 0.8);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(140, 148, 124, 0.3);
+  border-radius: 4px;
+}
+
+/* ===== Glass Panel ===== */
+.glass-panel {
+  background: linear-gradient(135deg, rgba(35, 31, 22, 0.7) 0%, rgba(22, 19, 10, 0.8) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-right: 0.5px solid rgba(255, 255, 255, 0.02);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.02);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+.glass-card {
+  background: linear-gradient(145deg, rgba(22, 19, 10, 0.7), rgba(22, 19, 10, 0.4));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+  border-right: 0.5px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+/* ===== 3D Glossy Buttons ===== */
+.btn-3d-lime {
+  background: linear-gradient(180deg, #b7f646, #d0ff82);
+  color: #233600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 0 15px rgba(208, 255, 130, 0.3);
+  transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-3d-lime:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 0 25px rgba(208, 255, 130, 0.5);
+}
+.btn-3d-lime:active {
+  transform: scale(0.97);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(208, 255, 130, 0.4);
+}
+
+.btn-3d-gold {
+  background: linear-gradient(180deg, #ffe088, #e9c349);
+  color: #3c2f00;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 0 15px rgba(233, 195, 73, 0.3);
+  transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-3d-gold:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 0 25px rgba(233, 195, 73, 0.5);
+}
+.btn-3d-gold:active {
+  transform: scale(0.97);
+  box-shadow:
+    inset 0 2px 4px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(233, 195, 73, 0.4);
+}
+
+.btn-danger-3d {
+  background: linear-gradient(135deg, #ffb4ab, #ff897d);
+  color: #690005;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 4px 10px rgba(255, 180, 171, 0.3);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.btn-danger-3d:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 6px 15px rgba(255, 180, 171, 0.5);
+  transform: translateY(-1px);
+}
+.btn-danger-3d:active {
+  transform: scale(0.97);
+}
+
+/* ===== Glow Effects ===== */
+.glow-border-lime {
+  border: 1px solid #d0ff82;
+  box-shadow: inset 0 0 10px rgba(208, 255, 130, 0.1), 0 0 10px rgba(208, 255, 130, 0.1);
+}
+
+.neon-glow {
+  box-shadow: 0 0 15px rgba(208, 255, 130, 0.2);
+}
+
+.neon-glow-secondary {
+  box-shadow: 0 0 15px rgba(233, 195, 73, 0.2);
+}
+
+.neon-text-glow {
+  text-shadow: 0 0 10px rgba(208, 255, 130, 0.5);
+}
+
+/* ===== Animations ===== */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 5px rgba(208, 255, 130, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(208, 255, 130, 0.6); }
+  100% { box-shadow: 0 0 5px rgba(208, 255, 130, 0.2); }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite ease-in-out;
+}
+
+@keyframes counter-glow {
+  from { text-shadow: 0 0 10px rgba(233, 195, 73, 0.5); }
+  to { text-shadow: 0 0 20px rgba(233, 195, 73, 0.8), 0 0 30px rgba(233, 195, 73, 0.4); }
+}
+.counter-animate {
+  animation: counter-glow 2s infinite alternate;
+}
+
+@keyframes orb-float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(30px, -50px) scale(1.1); }
+  100% { transform: translate(-20px, 20px) scale(0.9); }
+}
+.orb-glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+  z-index: 0;
+  animation: orb-float 10s infinite ease-in-out alternate;
+}
+
+/* ===== Gauge ===== */
+.gauge-track {
+  stroke: #38352a;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+.gauge-fill {
+  stroke: url(#lime-gradient);
+  stroke-dasharray: 283;
+  stroke-dashoffset: 70;
+  filter: drop-shadow(0 0 8px rgba(208, 255, 130, 0.6));
+  transition: stroke-dashoffset 1s ease-out;
+}
+
+/* ===== RTL ===== */
+[dir="rtl"] body {
+  font-family: "Outfit", "Noto Naskh Arabic", ui-sans-serif, system-ui, sans-serif;
+}

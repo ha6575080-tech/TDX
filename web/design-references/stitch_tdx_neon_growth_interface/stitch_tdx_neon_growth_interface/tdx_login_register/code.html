@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TDX Investment - Identity Verification</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline": "#8c947c",
+                      "surface-container-lowest": "#110e06",
+                      "secondary-fixed-dim": "#e9c349",
+                      "tertiary-fixed-dim": "#aacfb9",
+                      "tertiary": "#d2f9e1",
+                      "surface-container": "#231f16",
+                      "surface-dim": "#16130a",
+                      "on-background": "#e9e2d2",
+                      "outline-variant": "#424936",
+                      "secondary": "#e9c349",
+                      "on-primary": "#233600",
+                      "surface": "#16130a",
+                      "primary-fixed-dim": "#9cd927",
+                      "on-surface": "#e9e2d2",
+                      "primary-fixed": "#b7f646",
+                      "surface-bright": "#3d392e",
+                      "primary": "#d0ff82",
+                      "on-secondary-fixed-variant": "#574500",
+                      "secondary-container": "#af8d11",
+                      "error": "#ffb4ab",
+                      "on-surface-variant": "#c2cab0",
+                      "surface-tint": "#9cd927",
+                      "on-tertiary-fixed-variant": "#2c4d3d",
+                      "inverse-primary": "#476800",
+                      "on-error-container": "#ffdad6",
+                      "on-error": "#690005",
+                      "surface-container-low": "#1e1b12",
+                      "surface-container-highest": "#38352a",
+                      "on-primary-fixed-variant": "#344e00",
+                      "error-container": "#93000a",
+                      "tertiary-container": "#b6dcc5",
+                      "on-secondary-fixed": "#241a00",
+                      "on-tertiary": "#153727",
+                      "on-secondary": "#3c2f00",
+                      "surface-container-high": "#2d2a1f",
+                      "inverse-surface": "#e9e2d2",
+                      "surface-variant": "#38352a",
+                      "on-tertiary-container": "#406250",
+                      "background": "#16130a",
+                      "on-secondary-container": "#342800",
+                      "on-tertiary-fixed": "#002113",
+                      "on-primary-fixed": "#131f00",
+                      "tertiary-fixed": "#c5ebd4",
+                      "on-primary-container": "#446400",
+                      "inverse-on-surface": "#343026",
+                      "primary-container": "#a8e636",
+                      "secondary-fixed": "#ffe088"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "8px",
+                      "lg": "24px",
+                      "xl": "40px",
+                      "container-padding": "20px",
+                      "gutter": "16px",
+                      "base": "4px",
+                      "xs": "4px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "title-md": [
+                              "Outfit"
+                      ],
+                      "body-lg": [
+                              "Outfit"
+                      ],
+                      "headline-lg-mobile": [
+                              "Outfit"
+                      ],
+                      "headline-lg": [
+                              "Outfit"
+                      ],
+                      "body-md": [
+                              "Outfit"
+                      ],
+                      "label-md": [
+                              "Outfit"
+                      ],
+                      "label-sm": [
+                              "Outfit"
+                      ],
+                      "headline-xl": [
+                              "Outfit"
+                      ]
+              },
+              "fontSize": {
+                      "title-md": [
+                              "20px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-lg": [
+                              "18px",
+                              {
+                                      "lineHeight": "28px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg": [
+                              "32px",
+                              {
+                                      "lineHeight": "40px",
+                                      "letterSpacing": "-0.01em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-md": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-md": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "label-sm": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "fontWeight": "500"
+                              }
+                      ],
+                      "headline-xl": [
+                              "48px",
+                              {
+                                      "lineHeight": "56px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+      </script>
+<style>
+        body {
+            background-color: #0B2E1F;
+        }
+        
+        .glass-card {
+            background: linear-gradient(145deg, rgba(22, 19, 10, 0.7), rgba(22, 19, 10, 0.4));
+            backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 0.5px solid rgba(255, 255, 255, 0.05);
+            border-right: 0.5px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+        }
+
+        .neon-glow {
+            background: linear-gradient(90deg, #b7f646, #d0ff82);
+            box-shadow: 0 0 15px rgba(208, 255, 130, 0.4);
+        }
+        
+        .btn-3d {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.2), 0 4px 15px rgba(208, 255, 130, 0.3);
+            transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .btn-3d:hover {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.2), 0 8px 25px rgba(208, 255, 130, 0.5);
+            transform: translateY(-2px);
+        }
+        
+        .btn-3d:active {
+            transform: scale(0.97);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.4), 0 2px 10px rgba(208, 255, 130, 0.2);
+        }
+
+        .scanner-ring {
+            position: relative;
+            width: 200px;
+            height: 200px;
+            border-radius: 50%;
+            border: 2px dashed #424936;
+            margin: 0 auto;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(35, 31, 22, 0.5);
+        }
+
+        .scanner-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: #d0ff82;
+            box-shadow: 0 0 10px #d0ff82, 0 0 20px #d0ff82;
+            animation: scan 2s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+            z-select: 10;
+        }
+
+        @keyframes scan {
+            0% { top: 0%; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .bg-mesh {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(156, 217, 39, 0.05), transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(233, 195, 73, 0.05), transparent 25%);
+        }
+    </style>
+</head>
+<body class="text-on-background min-h-screen flex items-center justify-center p-4 antialiased overflow-x-hidden">
+<div class="bg-mesh"></div>
+<main class="w-full max-w-md mx-auto relative z-10">
+<!-- Logo Header -->
+<div class="text-center mb-8">
+<h1 class="font-headline-lg text-headline-lg font-bold text-primary tracking-tighter">TDX Investment</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Secure Registration</p>
+</div>
+<!-- Main Card -->
+<div class="glass-card rounded-2xl p-6 md:p-8 relative">
+<!-- Progress Indicator -->
+<div class="flex justify-center items-center mb-8 space-x-3">
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-label-md">
+<span class="material-symbols-outlined text-[16px]">check</span>
+</div>
+</div>
+<div class="h-1 w-12 bg-primary-container rounded-full"></div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-label-md text-label-md shadow-[0_0_10px_rgba(208,255,130,0.5)]">
+                        2
+                    </div>
+</div>
+<div class="h-1 w-12 bg-surface-container-highest rounded-full"></div>
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-label-md text-label-md">
+                        3
+                    </div>
+</div>
+</div>
+<!-- Content Area -->
+<div class="text-center mb-6">
+<h2 class="font-title-md text-title-md text-on-surface mb-2">Identity Verification</h2>
+<p class="font-body-md text-body-md text-on-surface-variant text-sm">Please position your face within the frame to verify your identity.</p>
+</div>
+<!-- Scanner Component -->
+<div class="mb-8 relative">
+<div class="scanner-ring">
+<div class="scanner-line"></div>
+<!-- Placeholder for actual camera feed -->
+<span class="material-symbols-outlined text-outline text-5xl opacity-50" style="font-variation-settings: 'FILL' 0;">face</span>
+</div>
+<div class="absolute inset-0 pointer-events-none rounded-full shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]"></div>
+</div>
+<!-- Action Buttons -->
+<div class="space-y-4">
+<button class="w-full h-[56px] neon-glow rounded-xl text-on-primary font-label-md text-label-md font-bold btn-3d flex items-center justify-center space-x-2">
+<span class="material-symbols-outlined">photo_camera</span>
+<span>Start Scan</span>
+</button>
+<button class="w-full h-[56px] bg-surface-container-highest rounded-xl text-on-surface font-label-md text-label-md font-semibold border border-outline-variant hover:bg-surface-bright transition-colors flex items-center justify-center">
+                    Upload ID Instead
+                </button>
+</div>
+<!-- Security Note -->
+<div class="mt-6 flex items-start space-x-2 text-on-surface-variant opacity-75">
+<span class="material-symbols-outlined text-[16px] mt-0.5">lock</span>
+<p class="font-label-sm text-label-sm leading-tight">Your biometric data is encrypted end-to-end and never stored on our servers. Regulated by standard financial security protocols.</p>
+</div>
+</div>
+</main>
+</body></html>

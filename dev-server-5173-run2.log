@@ -1,0 +1,22 @@
+
+> web@0.1.0 dev
+> next dev --webpack -p 5173
+
+▲ Next.js 16.3.1 (webpack)
+- Local:         http://localhost:5173
+- Network:       http://172.24.160.1:5173
+- Environments: .env.local
+✓ Ready in 2.8s
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of E:\Games\TDX\package-lock.json as the root directory.
+ To silence this warning, set `outputFileTracingRoot` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/output#caveats for more information.
+ Detected additional lockfiles: 
+   * E:\Games\TDX\web\package-lock.json
+
+✓ Running next.config.ts took 421ms
+
+○ Compiling /login ...
+ GET /login 200 in 16.9s (next.js: 14.7s, proxy.ts: 1444ms, application-code: 809ms)
+ GET /login 200 in 309ms (next.js: 11ms, proxy.ts: 225ms, application-code: 74ms)
+ GET /login 200 in 69ms (next.js: 6ms, proxy.ts: 11ms, application-code: 52ms)

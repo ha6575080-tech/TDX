@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>TDX Tasks Page</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "outline": "#8c947c",
+                      "surface-container-lowest": "#110e06",
+                      "secondary-fixed-dim": "#e9c349",
+                      "tertiary-fixed-dim": "#aacfb9",
+                      "tertiary": "#d2f9e1",
+                      "surface-container": "#231f16",
+                      "surface-dim": "#16130a",
+                      "on-background": "#e9e2d2",
+                      "outline-variant": "#424936",
+                      "secondary": "#e9c349",
+                      "on-primary": "#233600",
+                      "surface": "#16130a",
+                      "primary-fixed-dim": "#9cd927",
+                      "on-surface": "#e9e2d2",
+                      "primary-fixed": "#b7f646",
+                      "surface-bright": "#3d392e",
+                      "primary": "#d0ff82",
+                      "on-secondary-fixed-variant": "#574500",
+                      "secondary-container": "#af8d11",
+                      "error": "#ffb4ab",
+                      "on-surface-variant": "#c2cab0",
+                      "surface-tint": "#9cd927",
+                      "on-tertiary-fixed-variant": "#2c4d3d",
+                      "inverse-primary": "#476800",
+                      "on-error-container": "#ffdad6",
+                      "on-error": "#690005",
+                      "surface-container-low": "#1e1b12",
+                      "surface-container-highest": "#38352a",
+                      "on-primary-fixed-variant": "#344e00",
+                      "error-container": "#93000a",
+                      "tertiary-container": "#b6dcc5",
+                      "on-secondary-fixed": "#241a00",
+                      "on-tertiary": "#153727",
+                      "on-secondary": "#3c2f00",
+                      "surface-container-high": "#2d2a1f",
+                      "inverse-surface": "#e9e2d2",
+                      "surface-variant": "#38352a",
+                      "on-tertiary-container": "#406250",
+                      "background": "#16130a",
+                      "on-secondary-container": "#342800",
+                      "on-tertiary-fixed": "#002113",
+                      "on-primary-fixed": "#131f00",
+                      "tertiary-fixed": "#c5ebd4",
+                      "on-primary-container": "#446400",
+                      "inverse-on-surface": "#343026",
+                      "primary-container": "#a8e636",
+                      "secondary-fixed": "#ffe088"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "sm": "8px",
+                      "lg": "24px",
+                      "xl": "40px",
+                      "container-padding": "20px",
+                      "gutter": "16px",
+                      "base": "4px",
+                      "xs": "4px",
+                      "md": "16px"
+              },
+              "fontFamily": {
+                      "title-md": ["Outfit"],
+                      "body-lg": ["Outfit"],
+                      "headline-lg-mobile": ["Outfit"],
+                      "headline-lg": ["Outfit"],
+                      "body-md": ["Outfit"],
+                      "label-md": ["Outfit"],
+                      "label-sm": ["Outfit"],
+                      "headline-xl": ["Outfit"]
+              },
+              "fontSize": {
+                      "title-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                      "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                      "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                      "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                      "headline-xl": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+              }
+            }
+          }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0B2E1F; /* Base level 0 */
+            color: theme('colors.on-background');
+        }
+        
+        .glass-card {
+            background: linear-gradient(145deg, rgba(35, 31, 22, 0.7) 0%, rgba(22, 19, 10, 0.4) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 1px solid rgba(255, 255, 255, 0.05);
+            border-right: 0.5px solid rgba(255, 255, 255, 0.02);
+            border-bottom: 0.5px solid rgba(255, 255, 255, 0.02);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .neon-glow {
+            box-shadow: 0 0 15px rgba(208, 255, 130, 0.4);
+        }
+
+        .btn-glossy {
+            background: linear-gradient(180deg, theme('colors.primary-container') 0%, theme('colors.inverse-primary') 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 
+                        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+                        0 4px 15px rgba(208, 255, 130, 0.3);
+            transition: all 250ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .btn-glossy:hover:not(:disabled) {
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 
+                        inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+                        0 4px 20px rgba(208, 255, 130, 0.5);
+        }
+        
+        .btn-glossy:active:not(:disabled) {
+            transform: scale(0.97);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 
+                        inset 0 2px 4px rgba(0, 0, 0, 0.3),
+                        0 2px 8px rgba(208, 255, 130, 0.2);
+        }
+
+        .btn-glossy:disabled {
+            background: theme('colors.surface-container-high');
+            color: theme('colors.on-surface-variant');
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        
+        .progress-track {
+            background-color: theme('colors.surface-container-lowest');
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .progress-fill {
+            background: linear-gradient(90deg, theme('colors.primary-fixed-dim') 0%, theme('colors.primary') 100%);
+            box-shadow: 0 0 10px rgba(208, 255, 130, 0.5);
+        }
+        
+        .banner-glow {
+            background: linear-gradient(90deg, rgba(233, 195, 73, 0.1) 0%, rgba(208, 255, 130, 0.15) 50%, rgba(233, 195, 73, 0.1) 100%);
+            border: 1px solid rgba(208, 255, 130, 0.3);
+            box-shadow: 0 0 20px rgba(208, 255, 130, 0.2), inset 0 0 10px rgba(233, 195, 73, 0.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col pb-24 md:pb-0 md:pt-20">
+<!-- TopNavBar (Desktop) -->
+<nav class="hidden md:flex justify-between items-center px-container-padding h-16 w-full max-w-7xl mx-auto bg-surface/80 backdrop-blur-xl fixed top-0 w-full z-50 border-b border-outline-variant/30 shadow-md shadow-primary/10">
+<div class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">
+            TDX Investment
+        </div>
+<div class="flex gap-lg">
+<a class="text-on-surface-variant font-label-md text-label-md hover:bg-surface-bright transition-colors px-3 py-2 rounded-lg" href="#">Home</a>
+<a class="text-secondary font-bold font-label-md text-label-md hover:bg-surface-bright transition-colors px-3 py-2 rounded-lg active:scale-95 duration-250" href="#">Tasks</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:bg-surface-bright transition-colors px-3 py-2 rounded-lg" href="#">Stats</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:bg-surface-bright transition-colors px-3 py-2 rounded-lg" href="#">Chat</a>
+</div>
+<div class="flex gap-4">
+<button class="text-primary hover:bg-surface-bright p-2 rounded-full transition-colors active:scale-95 duration-250"><span class="material-symbols-outlined">account_circle</span></button>
+<button class="text-primary hover:bg-surface-bright p-2 rounded-full transition-colors active:scale-95 duration-250"><span class="material-symbols-outlined">task_alt</span></button>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-[1200px] mx-auto px-container-padding py-lg flex flex-col gap-lg">
+<!-- Header & Motivation -->
+<header class="flex flex-col gap-md">
+<div class="flex justify-between items-end">
+<div>
+<h1 class="font-headline-xl text-headline-xl text-on-surface">Daily Tasks</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Complete tasks to earn XP and unlock rewards.</p>
+</div>
+<div class="flex gap-sm items-center">
+<div class="flex items-center gap-base bg-secondary/15 border border-secondary/30 rounded-full px-3 py-1">
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-label-md text-label-md text-secondary">12 Day Streak</span>
+</div>
+<div class="bg-primary/15 border border-primary/30 rounded-full px-3 py-1">
+<span class="font-label-md text-label-md text-primary">Level 5</span>
+</div>
+</div>
+</div>
+<!-- Motivation Banner -->
+<div class="banner-glow rounded-xl p-md flex items-center justify-center gap-sm mt-sm">
+<span class="material-symbols-outlined text-primary">celebration</span>
+<span class="font-title-md text-title-md text-on-surface">3 More Tasks for Bonus Payout!</span>
+<span class="material-symbols-outlined text-primary">celebration</span>
+</div>
+</header>
+<!-- Task List -->
+<div class="flex flex-col gap-md mt-sm">
+<!-- Task 1 (Completed) -->
+<div class="glass-card rounded-xl p-lg flex flex-col md:flex-row gap-md justify-between items-start md:items-center">
+<div class="flex-grow w-full md:w-auto">
+<div class="flex justify-between md:justify-start gap-md items-center mb-sm">
+<h3 class="font-title-md text-title-md text-on-surface">Trade Execution</h3>
+<span class="bg-secondary/15 border border-secondary/30 text-secondary font-label-sm text-label-sm px-2 py-0.5 rounded-full">+50 XP</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Execute 5 successful trades today.</p>
+<div class="flex flex-col gap-base">
+<div class="flex justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Progress</span>
+<span class="font-label-sm text-label-sm text-primary">100%</span>
+</div>
+<div class="h-2 w-full progress-track rounded-full overflow-hidden">
+<div class="h-full progress-fill rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+</div>
+<button class="w-full md:w-auto min-h-[56px] px-xl rounded-xl font-label-md text-label-md text-on-primary-container btn-glossy flex items-center justify-center gap-sm">
+<span class="material-symbols-outlined">redeem</span> Claim Reward
+                </button>
+</div>
+<!-- Task 2 (In Progress) -->
+<div class="glass-card rounded-xl p-lg flex flex-col md:flex-row gap-md justify-between items-start md:items-center">
+<div class="flex-grow w-full md:w-auto">
+<div class="flex justify-between md:justify-start gap-md items-center mb-sm">
+<h3 class="font-title-md text-title-md text-on-surface">Portfolio Review</h3>
+<span class="bg-primary/15 border border-primary/30 text-primary font-label-sm text-label-sm px-2 py-0.5 rounded-full">+25 XP</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Review asset allocation across all accounts.</p>
+<div class="flex flex-col gap-base">
+<div class="flex justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Progress</span>
+<span class="font-label-sm text-label-sm text-primary">60%</span>
+</div>
+<div class="h-2 w-full progress-track rounded-full overflow-hidden">
+<div class="h-full progress-fill rounded-full" style="width: 60%;"></div>
+</div>
+</div>
+</div>
+<button class="w-full md:w-auto min-h-[56px] px-xl rounded-xl font-label-md text-label-md btn-glossy flex items-center justify-center gap-sm" disabled="">
+                    Claim Reward
+                </button>
+</div>
+<!-- Task 3 (Not Started) -->
+<div class="glass-card rounded-xl p-lg flex flex-col md:flex-row gap-md justify-between items-start md:items-center">
+<div class="flex-grow w-full md:w-auto">
+<div class="flex justify-between md:justify-start gap-md items-center mb-sm">
+<h3 class="font-title-md text-title-md text-on-surface">Market Analysis</h3>
+<span class="bg-primary/15 border border-primary/30 text-primary font-label-sm text-label-sm px-2 py-0.5 rounded-full">+100 XP</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Read daily market insights and complete quiz.</p>
+<div class="flex flex-col gap-base">
+<div class="flex justify-between">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Progress</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">0%</span>
+</div>
+<div class="h-2 w-full progress-track rounded-full overflow-hidden">
+<div class="h-full progress-fill rounded-full" style="width: 0%;"></div>
+</div>
+</div>
+</div>
+<button class="w-full md:w-auto min-h-[56px] px-xl rounded-xl font-label-md text-label-md btn-glossy flex items-center justify-center gap-sm" disabled="">
+                    Claim Reward
+                </button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-4 pt-2 bg-surface-container-highest/90 backdrop-blur-lg rounded-t-xl shadow-[0_-4px_10px_rgba(0,0,0,0.3)]">
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-sm text-label-sm mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-4 py-2 shadow-[0_0_15px_rgba(156,217,39,0.4)] scale-110 duration-250 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">checklist</span>
+<span class="font-label-sm text-label-sm mt-1 font-bold">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">monitoring</span>
+<span class="font-label-sm text-label-sm mt-1">Stats</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-2 hover:text-primary transition-all" href="#">
+<span class="material-symbols-outlined">chat</span>
+<span class="font-label-sm text-label-sm mt-1">Chat</span>
+</a>
+</nav>
+</body></html>
