@@ -1,8 +1,0 @@
-▲ Next.js 16.3.2 (Turbopack)
-- Local:         http://localhost:5173
-- Network:       http://172.26.96.1:5173
-✓ Ready in 1007ms
-✓ Running next.config took 28ms
-Error: > Couldn't find any `pages` or `app` directory. Please create one under the project root
-    at ignore-listed frames
-[?25h

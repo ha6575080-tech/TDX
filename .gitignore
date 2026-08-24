@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+.vscode/
+.env.local
+.env*.local
+out/
+.vercel/
+*.log
+.DS_Store
+Thumbs.db
+_old_project/
+build/
+.turbo/
