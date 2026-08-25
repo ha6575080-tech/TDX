@@ -42,6 +42,23 @@ export async function POST(req: Request) {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
+  // Prevent duplicate payout for same deposit in same month
+  const { data: existingPayout } = await supabaseAdmin
+    .from("payouts")
+    .select("id")
+    .eq("deposit_id", deposit_id)
+    .eq("month", month)
+    .eq("year", year)
+    .eq("status", "paid")
+    .single();
+
+  if (existingPayout) {
+    return NextResponse.json(
+      { error: "Payout already processed for this deposit this month" },
+      { status: 409 }
+    );
+  }
+
   // 2. Insert payout record
   const { error: payoutErr } = await supabaseAdmin.from("payouts").insert({
     user_id: deposit.user_id,
