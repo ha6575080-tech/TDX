@@ -12,3 +12,5 @@ Thumbs.db
 _old_project/
 build/
 .turbo/
+.vercel
+.env*
