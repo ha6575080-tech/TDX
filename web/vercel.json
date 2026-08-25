@@ -1,1 +1,6 @@
-{}
+{
+  "crons": [{
+    "path": "/api/cron/payout-reminders",
+    "schedule": "0 0 * * *"
+  }]
+}

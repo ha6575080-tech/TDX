@@ -1,0 +1,93 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
+import nodemailer from "nodemailer";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+export async function GET(req: Request) {
+  // Verify cron secret
+  const authHeader = req.headers.get("authorization");
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const now = new Date();
+  const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+  // Find deposits with payouts due in next 24 hours
+  const { data: dueDeposits, error } = await supabaseAdmin
+    .from("deposits")
+    .select(`
+      id, amount, next_payout_date, monthly_profit_pct,
+      profiles!inner (full_name, mobile_number, id)
+    `)
+    .eq("status", "approved")
+    .not("next_payout_date", "is", null)
+    .lte("next_payout_date", tomorrow.toISOString())
+    .gte("next_payout_date", now.toISOString());
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!dueDeposits || dueDeposits.length === 0) {
+    return NextResponse.json({ ok: true, due: 0 });
+  }
+
+  // Build email content
+  const rows = dueDeposits.map((d: Record<string, unknown>) => {
+    const profile = d.profiles as Record<string, unknown>;
+    const pct = (d.monthly_profit_pct as number) || 8;
+    const payout = ((d.amount as number) * (pct as number)) / 100;
+    const dueDate = new Date(d.next_payout_date as string).toLocaleDateString();
+    return `• ${profile.full_name || "N/A"} (${profile.mobile_number || "N/A"}) — Rs ${d.amount} @ ${pct}% = Rs ${payout} — Due: ${dueDate}`;
+  });
+
+  const html = `
+    <h2>💰 TDX Payout Reminder</h2>
+    <p><strong>${dueDeposits.length} payout(s) due in the next 24 hours:</strong></p>
+    <ul>${rows.map((r: string) => `<li>${r}</li>`).join("")}</ul>
+    <p>Log in to the Admin Panel → Payouts tab to process these.</p>
+  `;
+
+  // Send email to admin
+  try {
+    await transporter.sendMail({
+      from: `"TDX System" <${process.env.SMTP_USER}>`,
+      to: "ha6575080@gmail.com",
+      subject: `⏰ TDX Payout Reminder — ${dueDeposits.length} payout(s) due`,
+      html,
+    });
+  } catch (e) {
+    console.error("Email failed:", e);
+  }
+
+  // Also insert in-app notification for admin
+  const { data: adminProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("role", "admin")
+    .limit(1)
+    .single();
+
+  if (adminProfile) {
+    await supabaseAdmin.from("notifications").insert({
+      user_id: adminProfile.id,
+      title: "Payout Reminder",
+      title_ur: "ادائیگی یاد دہانی",
+      message: `${dueDeposits.length} payout(s) due. Review in Admin Panel.`,
+      message_ur: `${dueDeposits.length} ادائیگیاں واجب ہیں۔ ایڈمن پینل میں دیکھیں۔`,
+    });
+  }
+
+  return NextResponse.json({ ok: true, due: dueDeposits.length, rows });
+}
