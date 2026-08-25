@@ -61,13 +61,13 @@ export default function GlobalChatBubble() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, text, mode: "human", language: lang }),
+          body: JSON.stringify({ user_id: userId, message: text, language: lang }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed");
         setMessages((prev) => [
           ...prev,
-          { id: `reply-${Date.now()}`, sender: "system", message: data.reply, created_at: new Date().toISOString() },
+          { id: `reply-${Date.now()}`, sender: data.mode === "ai" ? "ai" : "system", message: data.reply, created_at: new Date().toISOString() },
         ]);
       } catch {
         // ignore

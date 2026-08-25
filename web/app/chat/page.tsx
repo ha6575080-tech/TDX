@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { MessageCircle, Send, Bot, User } from "lucide-react";
+import { MessageCircle, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { TopNav, BottomNav, GlassPanel, GlowButton } from "@/components/ui";
@@ -24,7 +24,6 @@ export default function ChatPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
-  const [mode, setMode] = useState<"ai" | "human">("ai");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,14 +87,14 @@ export default function ChatPage() {
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ userId, text, mode, language: lang }),
+          body: JSON.stringify({ user_id: userId, message: text, language: lang }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error ?? "Failed to send message");
 
         const replyMsg: ChatMessage = {
           id: `reply-${Date.now()}`,
-          sender: mode === "ai" ? "ai" : "system",
+          sender: data.mode === "ai" ? "ai" : "system",
           message: data.reply,
           created_at: new Date().toISOString(),
         };
@@ -106,7 +105,7 @@ export default function ChatPage() {
         setSending(false);
       }
     },
-    [userId, input, sending, mode]
+    [userId, input, sending]
   );
 
   const displayText = (m: ChatMessage) =>
@@ -155,40 +154,6 @@ export default function ChatPage() {
           </h1>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("ai")}
-            className={`h-10 rounded-lg px-4 text-sm font-semibold flex items-center gap-2 transition-colors ${
-              mode === "ai"
-                ? "btn-3d-lime"
-                : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright"
-            }`}
-          >
-            <Bot className="w-4 h-4" />
-            {t("aiBot")}
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("human")}
-            className={`h-10 rounded-lg px-4 text-sm font-semibold flex items-center gap-2 transition-colors ${
-              mode === "human"
-                ? "btn-3d-lime"
-                : "bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright"
-            }`}
-          >
-            <User className="w-4 h-4" />
-            {t("realHuman")}
-          </button>
-        </div>
-
-        {mode === "human" && (
-          <div className="rounded-lg bg-secondary/10 border border-secondary/30 px-4 py-3 text-sm text-secondary">
-            {t("humanWillReply")}
-          </div>
-        )}
-
         {error && (
           <div className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
             {error}
@@ -226,7 +191,7 @@ export default function ChatPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder={mode === "ai" ? t("askAi") : t("typeHuman")}
+            placeholder={t("askAi")}
             className="h-12 flex-1 rounded-xl border border-outline-variant/50 bg-surface-container-low px-4 text-sm text-on-surface outline-none focus:border-primary focus:shadow-[0_0_10px_rgba(208,255,130,0.3)]"
           />
           <GlowButton

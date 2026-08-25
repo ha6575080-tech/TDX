@@ -1,218 +1,115 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
-import { requireUser } from "@/lib/auth";
-import nodemailer from "nodemailer";
+import { createClient } from "@supabase/supabase-js";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
-const SMTP_USER = process.env.SMTP_USER ?? "";
-const SMTP_PASS = process.env.SMTP_PASS ?? "";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "ha6575080@gmail.com";
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { autoRefreshToken: false, persistSession: false } }
+);
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("user_id");
+  if (!userId) return NextResponse.json({ error: "user_id required" }, { status: 400 });
 
-const SYSTEM_INSTRUCTION = `You are the TDX support assistant. Answer FAQs about TDX: investment amounts (PKR 5,000 to 2,000,000, no package selection; Saima Easy Paisa Account 0325-2879424), deposits and receipt verification, daily tasks (5/day, Rs 200/day deduction for missed days), monthly profit withdrawals (7%-10% monthly rate selected by the Super Admin at completion, Rs 100 fee, 24-48h, one withdrawal per 30-day cycle, principal stays invested), referrals (Rs 100 bonus), profit payouts, investment returns (45 working days, Sat/Sun excluded). Be friendly and concise.`;
+  const { data, error } = await supabaseAdmin
+    .from("messages")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
 
-async function askGemini(question: string, language: string): Promise<string> {
-  if (!GEMINI_API_KEY) {
-    return "AI is temporarily unavailable — switch to Real Human";
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ messages: data });
+}
+
+export async function POST(req: Request) {
+  const body = await req.json();
+  const { user_id, message, language } = body as {
+    user_id: string;
+    message: string;
+    language?: string;
+  };
+
+  if (!user_id || !message) {
+    return NextResponse.json({ error: "user_id and message required" }, { status: 400 });
   }
 
-  let lastError: unknown = null;
+  // 1. Save user message
+  const userMsg: Record<string, unknown> = {
+    user_id,
+    message,
+    message_ur: language === "ur" ? message : null,
+    sender: "user",
+  };
+  const { error: insErr } = await supabaseAdmin.from("messages").insert(userMsg);
+  if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 });
 
-  for (const model of GEMINI_MODELS) {
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  // 2. Check admin online status
+  const { data: setting } = await supabaseAdmin
+    .from("system_settings")
+    .select("value")
+    .eq("key", "admin_chat_status")
+    .single();
 
-      const res = await fetch(url, {
+  const adminOnline = setting?.value === "online";
+
+  // 3. If admin is online, just confirm — admin replies manually
+  if (adminOnline) {
+    const sysMsg = language === "ur"
+      ? "ایڈمن فی الحال آن لائن ہے۔ وہ جلد آپ کو جواب دے گا۔"
+      : "An admin is online and will reply shortly.";
+    await supabaseAdmin.from("messages").insert({
+      user_id,
+      message: sysMsg,
+      message_ur: language === "ur" ? sysMsg : null,
+      sender: "system",
+    });
+    return NextResponse.json({ ok: true, mode: "admin_online", reply: sysMsg });
+  }
+
+  // 4. Admin offline → try Gemini AI
+  try {
+    const langPrompt = language === "ur"
+      ? "You are TDX Investment support assistant. Reply ONLY in Urdu. Keep it short and helpful.\n\nUser question: "
+      : "You are TDX Investment support assistant. Reply ONLY in English. Keep it short and helpful.\n\nUser question: ";
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
+      {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-          contents: [
-            {
-              parts: [{ text: `Reply in ${language}.\n\nUser question: ${question}` }],
-            },
-          ],
-          generationConfig: {
-            temperature: 0.3,
-            maxOutputTokens: 1024,
-          },
+          contents: [{ parts: [{ text: langPrompt + message }] }],
         }),
-      });
-
-      if (!res.ok) {
-        const errText = await res.text();
-        lastError = new Error(`Gemini ${model} HTTP ${res.status}: ${errText}`);
-        continue;
       }
+    );
 
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
-      if (text.trim()) return text.trim();
-      lastError = new Error(`Gemini ${model} returned empty response.`);
-    } catch (err) {
-      lastError = err;
+    const data = await res.json();
+    const aiReply = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (aiReply) {
+      const aiMsg: Record<string, unknown> = {
+        user_id,
+        message: aiReply,
+        message_ur: language === "ur" ? aiReply : null,
+        sender: "ai",
+      };
+      await supabaseAdmin.from("messages").insert(aiMsg);
+      return NextResponse.json({ ok: true, mode: "ai", reply: aiReply });
     }
-  }
-
-  console.warn("Gemini chat failed:", lastError);
-  return "AI is temporarily unavailable — switch to Real Human";
-}
-
-async function sendHumanEmail(opts: {
-  fullName: string;
-  username: string;
-  mobile: string;
-  message: string;
-}) {
-  if (!SMTP_USER || !SMTP_PASS) {
-    console.warn("SMTP not configured — skipping human-chat admin email.");
-    return;
-  }
-
-  try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: { user: SMTP_USER, pass: SMTP_PASS },
-    });
-
-    await transporter.sendMail({
-      from: SMTP_USER,
-      to: ADMIN_EMAIL,
-      subject: `User wants to chat with a human — ${opts.fullName} (${opts.username})`,
-      html: `
-        <h2>Real Human Chat Request</h2>
-        <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-          <tr><td><b>Full Name</b></td><td>${opts.fullName}</td></tr>
-          <tr><td><b>Username</b></td><td>${opts.username}</td></tr>
-          <tr><td><b>Mobile</b></td><td>${opts.mobile}</td></tr>
-        </table>
-        <p><b>Message:</b></p>
-        <p>${opts.message}</p>
-      `,
-    });
-  } catch (err) {
-    console.warn("Failed to send human-chat email:", err);
-  }
-}
-
-export async function POST(request: Request) {
-  const { user, error } = await requireUser();
-  if (error) return error;
-
-  let body: {
-    userId?: string;
-    text?: string;
-    mode?: string;
-    language?: string;
-  };
-  try {
-    body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    // Gemini failed — fall through
   }
 
-  const { userId, text, mode, language } = body;
-
-  if (!userId || !text || !text.trim()) {
-    return NextResponse.json(
-      { error: "userId and text are required" },
-      { status: 400 }
-    );
-  }
-
-  // Verify the authenticated user matches the user_id being operated on.
-  if (user.id !== userId) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  if (mode !== "ai" && mode !== "human") {
-    return NextResponse.json(
-      { error: "mode must be 'ai' or 'human'" },
-      { status: 400 }
-    );
-  }
-
-  const locale = language === "ur" ? "ur" : "en";
-  const langName = locale === "ur" ? "Urdu" : "English";
-
-  const supabase = await createServiceRoleClient();
-
-  // 1. Store the user's message (both languages when ur locale).
-  const { error: userMsgError } = await supabase.from("messages").insert({
-    user_id: userId,
-    sender: "user",
-    message: text.trim(),
-    message_ur: locale === "ur" ? text.trim() : null,
+  // 5. AI failed → save system message, admin will reply later
+  const fallbackMsg = language === "ur"
+    ? "آپ کا پیغام محفوظ ہو گیا ہے۔ ایڈمن آن لائن ہونے پر جواب دے گا۔"
+    : "Your message has been saved. The admin will reply when online.";
+  await supabaseAdmin.from("messages").insert({
+    user_id,
+    message: fallbackMsg,
+    message_ur: language === "ur" ? fallbackMsg : null,
+    sender: "system",
   });
-
-  if (userMsgError) {
-    return NextResponse.json({ error: userMsgError.message }, { status: 500 });
-  }
-
-  // 1b. Fetch user profile + email the admin on every user message
-  //     (skips silently if SMTP not configured).
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, username, mobile_number")
-    .eq("id", userId)
-    .single();
-
-  if (SMTP_USER && SMTP_PASS) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: { user: SMTP_USER, pass: SMTP_PASS },
-      });
-      await transporter.sendMail({
-        from: SMTP_USER,
-        to: ADMIN_EMAIL,
-        subject: `New message from user ${profile?.full_name ?? "Unknown"}`,
-        html: `<h2>New message from ${profile?.full_name ?? "Unknown"} (@${profile?.username ?? "Unknown"})</h2><p><b>Message:</b> ${text.trim()}</p>`,
-      });
-    } catch (err) {
-      console.warn("Failed to send admin chat email:", err);
-    }
-  }
-
-  // 2. Route based on mode.
-  if (mode === "ai") {
-    const reply = await askGemini(text.trim(), langName);
-
-    // Store the AI reply.
-    const { error: aiMsgError } = await supabase.from("messages").insert({
-      user_id: userId,
-      sender: "ai",
-      message: reply,
-      message_ur: locale === "ur" ? reply : null,
-    });
-
-    if (aiMsgError) {
-      return NextResponse.json({ error: aiMsgError.message }, { status: 500 });
-    }
-
-    return NextResponse.json({ success: true, reply });
-  }
-
-  // Real Human mode (admin email handled above for all modes; keep legacy helper).
-  await sendHumanEmail({
-    fullName: profile?.full_name ?? "Unknown",
-    username: profile?.username ?? "Unknown",
-    mobile: profile?.mobile_number ?? "Unknown",
-    message: text.trim(),
-  });
-
-  const humanReply =
-    locale === "ur"
-      ? "ایک ایڈمن جلد جواب دے گا۔"
-      : "A human admin will reply soon.";
-
-  return NextResponse.json({
-    success: true,
-    reply: humanReply,
-  });
+  return NextResponse.json({ ok: true, mode: "queued", reply: fallbackMsg });
 }
