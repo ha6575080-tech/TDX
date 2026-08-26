@@ -469,6 +469,12 @@ export default function DashboardPage() {
             >
               {t("viewStatement")}
             </Link>
+            <Link
+              href="/agents"
+              className="h-11 rounded-lg bg-primary-container text-on-primary-container px-6 text-sm font-bold inline-flex items-center transition-colors hover:bg-primary-fixed"
+            >
+              {t("agentPortal")}
+            </Link>
           </div>
         </section>
       </div>
