@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useI18n } from "@/lib/i18n";
 import {
   Activity,
@@ -21,6 +22,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { GlassPanel, FeedItem, Gauge } from "@/components/ui";
+import ReceiptGenerator, { type ReceiptData } from "@/components/ReceiptGenerator";
 
 type Tab =
   | "overview"
@@ -230,6 +232,51 @@ export default function AdminPanel() {
   const [rateSelections, setRateSelections] = useState<Record<string, number>>(
     {}
   );
+  // Per-row receipt generation (deposits / payouts tabs).
+  const [receiptTarget, setReceiptTarget] = useState<{
+    type: "deposit" | "payout";
+    id: string;
+  } | null>(null);
+  const [receiptLang, setReceiptLang] = useState<"en" | "ur">("en");
+  const [receiptBusy, setReceiptBusy] = useState(false);
+  const [receiptData, setReceiptData] = useState<ReceiptData | null>(null);
+  const [receiptMsg, setReceiptMsg] = useState<string | null>(null);
+
+  const openReceiptModal = (type: "deposit" | "payout", id: string) => {
+    setReceiptTarget({ type, id });
+    setReceiptLang("en");
+    setReceiptData(null);
+    setReceiptMsg(null);
+  };
+
+  async function generateReceipt() {
+    if (!receiptTarget) return;
+    setReceiptBusy(true);
+    setReceiptMsg(null);
+    setReceiptData(null);
+    try {
+      const r = await fetch("/api/admin/receipt/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: receiptTarget.type,
+          id: receiptTarget.id,
+          language: receiptLang,
+        }),
+      });
+      const json = await r.json();
+      if (!r.ok || !json.ok) {
+        setReceiptMsg(t("receiptFailed"));
+      } else {
+        setReceiptData(json.receipt as ReceiptData);
+        setReceiptMsg(t("receiptGenerated"));
+      }
+    } catch {
+      setReceiptMsg(t("receiptFailed"));
+    } finally {
+      setReceiptBusy(false);
+    }
+  }
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -604,6 +651,13 @@ export default function AdminPanel() {
               {tb.label}
             </button>
           ))}
+          <Link
+            href="/admin/receipts"
+            className="h-10 rounded-lg px-4 text-sm font-semibold flex items-center gap-2 transition-colors bg-surface-container-highest text-on-surface-variant hover:bg-surface-bright"
+          >
+            <Printer className="w-4 h-4" />
+            {t("receipt")}
+          </Link>
         </div>
 
         {actionMsg && (
@@ -865,6 +919,7 @@ export default function AdminPanel() {
                       <th className="px-3 py-2">AI</th>
                       <th className="px-3 py-2">{t("status")}</th>
                       <th className="px-3 py-2">{t("registered")}</th>
+                      <th className="px-3 py-2">{t("receipt")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -880,6 +935,15 @@ export default function AdminPanel() {
                         </td>
                         <td className="px-3 py-2"><span className={statusBadgeCls(d.status)}>{d.status}</span></td>
                         <td className="px-3 py-2">{fmtDate(d.created_at)}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => openReceiptModal("deposit", d.id)}
+                            className="btn-3d-lime h-8 rounded-lg px-3 text-xs font-bold whitespace-nowrap"
+                          >
+                            <Printer className="w-3 h-3 mr-1 inline" />
+                            {t("generateReceipt")}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1114,6 +1178,7 @@ export default function AdminPanel() {
                       <th className="px-3 py-2">{t("monthYear")}</th>
                       <th className="px-3 py-2">{t("status")}</th>
                       <th className="px-3 py-2">{t("payoutDate")}</th>
+                      <th className="px-3 py-2">{t("receipt")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1124,6 +1189,15 @@ export default function AdminPanel() {
                         <td className="px-3 py-2">{p.month}/{p.year}</td>
                         <td className="px-3 py-2"><span className={statusBadgeCls(p.status)}>{p.status}</span></td>
                         <td className="px-3 py-2">{fmtDate(p.payout_date)}</td>
+                        <td className="px-3 py-2">
+                          <button
+                            onClick={() => openReceiptModal("payout", p.id)}
+                            className="btn-3d-lime h-8 rounded-lg px-3 text-xs font-bold whitespace-nowrap"
+                          >
+                            <Printer className="w-3 h-3 mr-1 inline" />
+                            {t("generateReceipt")}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -1464,6 +1538,78 @@ export default function AdminPanel() {
           </div>
         ) : null}
       </div>
+
+      {/* Receipt generation modal */}
+      {receiptTarget && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm overflow-y-auto p-6"
+          onClick={() => setReceiptTarget(null)}
+        >
+          <div
+            className="glass-panel p-6 max-w-xl w-full my-8 mx-auto space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-on-surface">
+                {receiptTarget.type === "deposit" ? t("depositReceipt") : t("payoutReceipt")}
+              </h2>
+              <button
+                onClick={() => setReceiptTarget(null)}
+                className="h-9 rounded-lg px-3 text-sm font-semibold bg-surface-bright hover:bg-surface-container-high"
+              >
+                <X className="w-4 h-4 inline" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold text-on-surface-variant mr-1">
+                {t("receiptLanguage")}:
+              </span>
+              {([
+                ["en", "english"],
+                ["ur", "urdu"],
+              ] as const).map(([code, key]) => (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => {
+                    setReceiptLang(code);
+                    setReceiptData(null);
+                    setReceiptMsg(null);
+                  }}
+                  className={`h-9 rounded-lg px-4 text-sm font-semibold border transition-colors ${
+                    receiptLang === code
+                      ? "bg-primary/15 text-primary border-primary/40"
+                      : "bg-surface-bright text-on-surface-variant border-outline-variant/30 hover:bg-surface-container-high"
+                  }`}
+                >
+                  {t(key)}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={generateReceipt}
+              disabled={receiptBusy}
+              className="btn-3d-lime h-10 rounded-lg px-5 text-sm font-bold disabled:opacity-50"
+            >
+              {receiptBusy ? t("processing") : t("generateReceipt")}
+            </button>
+
+            {receiptMsg && (
+              <p className={`text-sm ${receiptMsg === t("receiptGenerated") ? "text-primary" : "text-error"}`}>
+                {receiptMsg}
+              </p>
+            )}
+
+            {receiptData && (
+              <div className="pt-2 border-t border-outline-variant/30">
+                <ReceiptGenerator data={receiptData} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
