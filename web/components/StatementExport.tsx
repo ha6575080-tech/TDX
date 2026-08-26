@@ -165,9 +165,9 @@ export default function StatementExport({ data, language }: StatementExportProps
       </div>
 
       <div className="flex gap-3 flex-wrap">
-        <button onClick={exportPDF} className="btn-3d-lime px-4 py-2 rounded-xl">{t("exportPdf")}</button>
-        <button onClick={exportWord} className="btn-3d-lime px-4 py-2 rounded-xl">{t("exportWord")}</button>
-        <button onClick={exportPNG} className="btn-3d-lime px-4 py-2 rounded-xl">{t("exportPng")}</button>
+        <button onClick={exportPDF} className="btn-3d-lime px-4 py-2 rounded-xl">{t("downloadPdf")}</button>
+        <button onClick={exportWord} className="btn-3d-lime px-4 py-2 rounded-xl">{t("downloadWord")}</button>
+        <button onClick={exportPNG} className="btn-3d-lime px-4 py-2 rounded-xl">{t("downloadPng")}</button>
       </div>
     </div>
   );

@@ -463,6 +463,12 @@ export default function DashboardPage() {
               <MessageCircle className="w-4 h-4 mr-2" />
               {t("chat")}
             </Link>
+            <Link
+              href="/statement"
+              className="h-11 rounded-lg bg-primary-container text-on-primary-container px-6 text-sm font-bold inline-flex items-center transition-colors hover:bg-primary-fixed"
+            >
+              {t("viewStatement")}
+            </Link>
           </div>
         </section>
       </div>
