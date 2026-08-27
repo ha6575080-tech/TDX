@@ -1,19 +1,21 @@
-import { type NextRequest } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
+const publicPaths = ["/", "/login", "/register", "/_not-found"];
+
 export async function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+  // Allow public pages through without auth check
+  if (publicPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
+    return NextResponse.next();
+  }
+
   return await updateSession(request);
 }
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - public files (e.g. *.svg, *.png)
-     */
     "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
