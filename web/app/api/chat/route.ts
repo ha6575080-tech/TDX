@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { requireUser } from "@/lib/auth";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,21 +9,26 @@ const supabaseAdmin = createClient(
 );
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const userId = searchParams.get("user_id");
-  if (!userId) return NextResponse.json({ error: "user_id required" }, { status: 400 });
+  // Authentication: the session user may only read their own thread.
+  const { user, error } = await requireUser();
+  if (error) return error;
+  const userId = user!.id;
 
-  const { data, error } = await supabaseAdmin
+  const { data, error: qErr } = await supabaseAdmin
     .from("messages")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
   return NextResponse.json({ messages: data });
 }
 
 export async function POST(req: Request) {
+  // Authentication: reject callers whose user_id doesn't match their session.
+  const { user, error } = await requireUser();
+  if (error) return error;
+
   const body = await req.json();
   const { user_id, message, language } = body as {
     user_id: string;
@@ -30,9 +36,18 @@ export async function POST(req: Request) {
     language?: string;
   };
 
-  if (!user_id || !message) {
-    return NextResponse.json({ error: "user_id and message required" }, { status: 400 });
+  if (!message) {
+    return NextResponse.json({ error: "message required" }, { status: 400 });
   }
+
+  // user_id in the request must match the authenticated user's id.
+  if (user_id && user_id !== user!.id) {
+    return NextResponse.json(
+      { error: "user_id does not match authenticated user" },
+      { status: 403 }
+    );
+  }
+  const userId = user!.id;
 
   // 1. Save user message
   const userMsg: Record<string, unknown> = {
