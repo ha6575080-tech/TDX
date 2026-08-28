@@ -8,7 +8,7 @@ const SMTP_USER = process.env.SMTP_USER ?? "";
 const SMTP_PASS = process.env.SMTP_PASS ?? "";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "ha6575080@gmail.com";
 
-const GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash"];
+const GEMINI_MODELS = ["gemini-3.6-flash"];
 
 // Free-tier guard: never send more than ~4 MB of image data to Gemini.
 const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;
