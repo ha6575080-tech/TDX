@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { UserPlus, ShieldCheck } from "lucide-react";
+import { UserPlus, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
+import { extractErrorInfo } from "@/lib/errors";
 
 const PAYMENT_METHODS = ["EASY PAISA", "JAZZ CASH", "NAYAPAY", "BANK", "UPAISA"];
 const PHONE_REGEX = /^03[0-9]{9}$/;
@@ -16,6 +17,18 @@ function toAuthEmail(identifier: string): string {
     return `0${identifier}@tdx.app`;
   }
   return identifier;
+}
+
+/** Cryptographically-random alphanumeric string (never Math.random). */
+function randAlnum(length: number, lowercase: boolean): string {
+  const pool = lowercase
+    ? "abcdefghijklmnopqrstuvwxyz0123456789"
+    : "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const out = new Uint32Array(length);
+  crypto.getRandomValues(out);
+  let s = "";
+  for (let i = 0; i < length; i++) s += pool[out[i] % pool.length];
+  return s;
 }
 
 const inputCls =
@@ -35,12 +48,15 @@ export default function RegisterPage() {
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [referralCode, setReferralCode] = useState("");
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [finalUsername, setFinalUsername] = useState<string | null>(null);
   const [alreadyRegistered, setAlreadyRegistered] = useState(false);
+  // Double-submit guard — applies even in the same render frame as the click.
+  const submittingRef = useRef(false);
 
   const mobileValid = PHONE_REGEX.test(mobileNumber);
   const passwordValid = password.length >= 6;
@@ -58,11 +74,13 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
 
+    if (submittingRef.current) return; // Phase 7: no duplicate submissions
     if (!canSubmit) {
       setError("Please fill in all required fields correctly.");
       return;
     }
 
+    submittingRef.current = true;
     setLoading(true);
 
     try {
@@ -85,29 +103,30 @@ export default function RegisterPage() {
       });
 
       if (signUpError) {
-        if (signUpError.code === "user_already_exists") {
+        const info = extractErrorInfo(signUpError);
+        // Partial/duplicate account: auth user already exists.
+        if (info.code === "user_already_exists") {
           setAlreadyRegistered(true);
           return;
         }
-        throw signUpError;
+        setError(`Registration failed: ${info.friendly}`);
+        return;
       }
       if (!data.user) throw new Error("Sign up did not return a user.");
 
+      // Server-authoritative identity: the ID returned by Supabase Auth.
+      // A client-supplied user_id is never used for profile creation.
       const userId = data.user.id;
+      const hasSession = !!data.session;
 
-      const randomPart = Array.from(
-        { length: 6 },
-        () => "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"[
-          Math.floor(Math.random() * 36)
-        ]
-      ).join("");
-      const finalReferralCode =
-        referralCode.trim() !== ""
-          ? referralCode.trim()
-          : `TDX${randomPart}`;
+      // The member's OWN referral code (the code others can use to refer
+      // them). This is NEW + unique for this account. The code a user types
+      // in the "Referral Code (optional)" field belongs to the REFERRER and
+      // must NEVER be assigned to this profile (it is UNIQUE per row — doing
+      // so caused a deterministic constraint failure and broke registration).
+      const ownReferralCode = `TDX${randAlnum(6, false)}`;
 
-      let finalUsernameValue = username.trim();
-      const profilePayload = {
+      const baseProfile = {
         id: userId,
         full_name: fullName.trim(),
         address: address.trim(),
@@ -115,40 +134,55 @@ export default function RegisterPage() {
         mobile_number: mobileNumber.trim(),
         account_number: accountNumber.trim(),
         payment_method: paymentMethod,
-        username: finalUsernameValue,
-        referral_code: finalReferralCode,
       };
 
-      try {
-        let { error: profileError } = await supabase
-          .from("profiles")
-          .upsert(profilePayload, { onConflict: "id" });
+      // Profile save, fault-tolerant:
+      //  - With an active session the upsert is authorized (RLS own-row).
+      //  - Username collisions (23505) retry with a crypto-random suffix.
+      //  - Referral-code collisions regenerate a fresh own-code on retry.
+      //  - If the session is not yet established (email confirmation), the
+      //    handle_new_user() trigger has ALREADY created the profile from the
+      //    same metadata — nothing is written now, no error is shown.
+      if (hasSession) {
+        let saved = false;
+        let fatalInfo: ReturnType<typeof extractErrorInfo> | null = null;
+        for (let attempt = 1; attempt <= 3 && !saved; attempt++) {
+          const uname =
+            attempt === 1
+              ? username.trim()
+              : `${username.trim()}_${randAlnum(4, true)}`;
+          const payload = {
+            ...baseProfile,
+            username: uname,
+            referral_code: attempt === 1 ? ownReferralCode : `TDX${randAlnum(6, false)}`,
+          };
 
-        if (profileError) {
-          const suffix = Array.from(
-            { length: 4 },
-            () => "abcdefghijklmnopqrstuvwxyz0123456789"[
-              Math.floor(Math.random() * 36)
-            ]
-          ).join("");
-          finalUsernameValue = `${username.trim()}_${suffix}`;
-          setFinalUsername(finalUsernameValue);
-
-          const retry = await supabase
+          const { error: profileError } = await supabase
             .from("profiles")
-            .upsert(
-              { ...profilePayload, username: finalUsernameValue },
-              { onConflict: "id" }
-            );
-          profileError = retry.error;
+            .upsert(payload, { onConflict: "id" });
+
+          if (!profileError) {
+            saved = true;
+            if (attempt > 1) setFinalUsername(uname);
+            continue;
+          }
+
+          fatalInfo = extractErrorInfo(profileError);
+          if (fatalInfo.code === "23505") continue; // username or referral_code taken → new variation
+          if (fatalInfo.code === "42501") {
+            // Profile already exists via the signup trigger; RLS blocked the
+            // duplicate write. Treat as saved — the account is complete.
+            saved = true;
+            continue;
+          }
+          break; // real failure — stop retrying
         }
 
-        if (profileError) throw profileError;
-      } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error("Registration failed at profile save:", err);
-        setError(`Registration failed at profile save: ${message}`);
-        return;
+        if (!saved && fatalInfo) {
+          console.error("Registration profile save failed:", fatalInfo);
+          setError(`Registration failed: ${fatalInfo.friendly}`);
+          return;
+        }
       }
 
       // Referral claim: only the code is sent — the server resolves the
@@ -161,13 +195,14 @@ export default function RegisterPage() {
         }).catch(() => {});
       }
 
-      router.push("/dashboard");
+      router.push(hasSession ? "/dashboard" : "/login");
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      console.error("Registration failed at sign up:", err);
-      setError(`Registration failed at sign up: ${message}`);
+      const info = extractErrorInfo(err);
+      console.error("Registration failed at sign up:", info);
+      setError(`Registration failed: ${info.friendly}`);
     } finally {
       setLoading(false);
+      submittingRef.current = false;
     }
   }
 
@@ -304,14 +339,30 @@ export default function RegisterPage() {
               <label className="mb-1 block text-label-md text-on-surface-variant">
                 {t("password")}
               </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={`${inputCls} ${
-                  password !== "" && !passwordValid ? "border-error" : ""
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  aria-label={t("password")}
+                  className={`${inputCls} pr-12 ${
+                    password !== "" && !passwordValid ? "border-error" : ""
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  title={showPassword ? "Hide password" : "Show password"}
+                  className="absolute right-1 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-lg text-on-surface-variant transition-colors hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
+                </button>
+              </div>
               {password !== "" && !passwordValid && (
                 <p className="mt-1 text-xs text-error">
                   Password must be at least 6 characters.
@@ -337,11 +388,13 @@ export default function RegisterPage() {
 
             {alreadyRegistered && (
               <div className="rounded-lg bg-secondary/10 border border-secondary/30 px-4 py-3 text-sm text-secondary">
-                This phone/email is already registered — please{" "}
+                An account with this phone/email already exists. If you registered
+                before but never completed the process, check your inbox for a
+                confirmation link, then{" "}
                 <Link href="/login" className="font-semibold text-primary underline">
                   log in
-                </Link>{" "}
-                instead.
+                </Link>
+                . If you still cannot log in, contact support.
               </div>
             )}
 

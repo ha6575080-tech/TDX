@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, ShieldCheck } from "lucide-react";
+import { LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
+import { extractErrorInfo } from "@/lib/errors";
 
 const PHONE_REGEX = /^03[0-9]{9}$/;
 
@@ -26,6 +27,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,9 +64,8 @@ export default function LoginPage() {
         router.push("/dashboard");
       }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Login failed. Please try again."
-      );
+      const info = extractErrorInfo(err, "Login failed. Please try again.");
+      setError(info.friendly);
     } finally {
       setLoading(false);
     }

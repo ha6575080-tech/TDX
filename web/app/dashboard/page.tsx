@@ -31,6 +31,7 @@ import ReturnInvestmentPanel, {
 import UpgradeInvestmentPanel, {
   type PendingUpgradeState,
 } from "@/components/UpgradeInvestmentPanel";
+import FinancialHealthCard from "@/components/FinancialHealthCard";
 
 interface Profile {
   username: string;
@@ -312,6 +313,11 @@ export default function DashboardPage() {
               {t("greatJob")}
             </div>
           </GlassPanel>
+        </section>
+
+        {/* Financial Health Score */}
+        <section className="col-span-4 md:col-span-12">
+          <FinancialHealthCard />
         </section>
 
         {/* Profile + Recent Deposits */}

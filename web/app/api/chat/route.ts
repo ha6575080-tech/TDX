@@ -118,6 +118,10 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: langPrompt + message }] }],
+          // gemini-3.6-flash cannot fully disable thinking (budget 0 → HTTP 400);
+          // budget 1 is the minimum supported and keeps replies ~3-5s, well
+          // inside the 12s AbortController below.
+          generationConfig: { thinkingConfig: { thinkingBudget: 1 } },
         }),
         signal: controller.signal,
       }
