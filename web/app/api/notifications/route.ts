@@ -27,22 +27,29 @@ export async function POST(request: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
 
-  let body: { notification_id?: string };
+  let body: { notification_id?: string; mark_all?: boolean };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { notification_id } = body;
-  if (!notification_id) {
-    return NextResponse.json(
-      { error: "notification_id is required" },
-      { status: 400 }
-    );
+  const supabase = await createServiceRoleClient();
+
+  // Bulk: mark ALL of this user's notifications as read in ONE request.
+  if (body.mark_all === true) {
+    const { error: updateError } = await supabase
+      .from("notifications")
+      .update({ is_read: true })
+      .eq("user_id", user.id)
+      .eq("is_read", false);
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    return NextResponse.json({ success: true });
   }
 
-  const supabase = await createServiceRoleClient();
+  const { notification_id } = body;
 
   // Mark as read only if it belongs to this user OR is a global broadcast.
   const { error: updateError } = await supabase

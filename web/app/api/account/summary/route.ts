@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { computeSummaryTotals } from "@/lib/account-summary";
 
 /**
  * GET /api/account/summary
@@ -9,16 +10,9 @@ import { requireUser } from "@/lib/auth";
  * All balance math happens here, server-side — the browser only displays
  * these numbers and must never construct them itself.
  *
- * Display semantics (preserved from the previous client-side behaviour):
- *   totalDeposited = sum of APPROVED deposits
- *   totalProfit    = sum of ALL profit rows (pending + paid)
- *   totalWithdrawn = sum of ALL withdrawal rows (any status)
- *   totalBalance   = deposited + profit - withdrawn - deductions
- *
- * Authoritative withdrawable balance (used to gate withdrawals):
- *   approved deposits + PAID profits
- *   - withdrawals in ('pending','approved','completed')  [reserved or spent]
- *   - deductions
+ * The math itself lives in lib/account-summary.ts (pure code motion —
+ * expressions are verbatim-identical to the previous inline version) so
+ * that goal progress can reuse the exact same authoritative numbers.
  */
 export async function GET() {
   const { user, error } = await requireUser();
@@ -76,42 +70,18 @@ export async function GET() {
   const latestReturn = returnsRes.data?.[0] ?? null;
   const latestUpgrade = upgradesRes.data?.[0] ?? null;
 
-  // ---- DISPLAY totals (same semantics as the previous client-side math) ----
-  const totalDeposited = deposits
-    .filter((d) => d.status === "approved")
-    .reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  const totalProfit = profits.reduce(
-    (s, p) => s + Number(p.amount ?? 0),
-    0
-  );
-  const totalWithdrawn = withdrawals.reduce(
-    (s, w) => s + Number(w.amount ?? 0),
-    0
-  );
-  const deductions = Number(profile?.total_deductions ?? 0);
-  const totalBalance =
-    totalDeposited + totalProfit - totalWithdrawn - deductions;
+  // ---- AUTHORITATIVE totals (shared module — pure code motion) ----
+  const {
+    totalDeposited,
+    totalProfit,
+    totalWithdrawn,
+    deductions,
+    totalBalance,
+    withdrawableBalance,
+    activeInvestment: summaryActiveInvestment,
+  } = computeSummaryTotals(profile, deposits, profits, withdrawals);
 
-  // ---- AUTHORITATIVE withdrawable balance (mirrors request_withdrawal RPC) --
-  const reservedOrSpent = withdrawals
-    .filter((w) => ["pending", "approved", "completed"].includes(w.status))
-    .reduce((s, w) => s + Number(w.amount ?? 0), 0);
-  const paidProfits = profits
-    .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + Number(p.amount ?? 0), 0);
-  const withdrawableBalance = Math.max(
-    0,
-    totalDeposited + paidProfits - reservedOrSpent - deductions
-  );
-
-  // ---- FINANCIAL WORKFLOW STATE (authoritative, server-derived) ----
-  // Active investment mirrors the DB's active_investment() logic:
-  // profiles.investment_amount (set after an activated upgrade) takes
-  // precedence; otherwise derived from approved deposits.
-  const activeInvestment =
-    profile?.investment_amount != null
-      ? Number(profile.investment_amount)
-      : totalDeposited;
+  const activeInvestment = summaryActiveInvestment;
 
   // Return-investment hold: an approved, not-yet-completed return blocks
   // withdrawals and upgrades (enforced again server-side in the RPCs).

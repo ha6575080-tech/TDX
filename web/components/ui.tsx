@@ -8,6 +8,8 @@ import {
   BarChart3,
   MessageCircle,
   Languages,
+  History,
+  Target,
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import NotificationBell from "@/components/NotificationBell";
@@ -204,6 +206,8 @@ export function TopNav({ active }: { active?: string }) {
   const pathname = usePathname();
   const links = [
     { href: "/dashboard", label: t("dashboard") },
+    { href: "/activity", label: "Activity" },
+    { href: "/goals", label: "Goals" },
     { href: "/tasks", label: t("tasks") },
     { href: "/statistics", label: t("stats") },
     { href: "/chat", label: t("chat") },
@@ -246,8 +250,9 @@ export function BottomNav({ active }: { active?: string }) {
   const pathname = usePathname();
   const items = [
     { href: "/dashboard", label: t("home"), icon: <Home className="w-5 h-5" /> },
+    { href: "/activity", label: "Activity", icon: <History className="w-5 h-5" /> },
+    { href: "/goals", label: "Goals", icon: <Target className="w-5 h-5" /> },
     { href: "/tasks", label: t("tasks"), icon: <ListChecks className="w-5 h-5" /> },
-    { href: "/statistics", label: t("stats"), icon: <BarChart3 className="w-5 h-5" /> },
     { href: "/chat", label: t("chat"), icon: <MessageCircle className="w-5 h-5" /> },
   ];
   return (

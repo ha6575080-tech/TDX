@@ -32,6 +32,7 @@ import UpgradeInvestmentPanel, {
   type PendingUpgradeState,
 } from "@/components/UpgradeInvestmentPanel";
 import FinancialHealthCard from "@/components/FinancialHealthCard";
+import GoalsSummaryCard from "@/components/GoalsSummaryCard";
 
 interface Profile {
   username: string;
@@ -318,6 +319,34 @@ export default function DashboardPage() {
         {/* Financial Health Score */}
         <section className="col-span-4 md:col-span-12">
           <FinancialHealthCard />
+        </section>
+
+        {/* Personal goals summary (hidden until goals DB setup is applied) */}
+        <section className="col-span-4 md:col-span-6">
+          <GoalsSummaryCard />
+        </section>
+
+        {/* Quick links: full history/receipts */}
+        <section className="col-span-4 md:col-span-6">
+          <GlassPanel className="p-5 flex flex-col justify-center h-full">
+            <h2 className="text-label-md text-on-surface-variant font-semibold mb-3">
+              {lang === "ur" ? "لین دین کی تفصیلات" : "Transaction details"}
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link
+                href="/activity"
+                className="h-10 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#A8E636] px-4 text-sm font-bold text-[#0B2E1F] hover:bg-[#b8f04a] transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                {lang === "ur" ? "سرگرمی + رسیدیں" : "Activity + receipts"}
+              </Link>
+              <Link
+                href="/statement"
+                className="h-10 inline-flex items-center justify-center rounded-lg border border-outline-variant/50 px-4 text-sm font-semibold text-on-surface hover:bg-surface-bright transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                {lang === "ur" ? "اسٹیٹمنٹ" : "Statement"}
+              </Link>
+            </div>
+          </GlassPanel>
         </section>
 
         {/* Profile + Recent Deposits */}

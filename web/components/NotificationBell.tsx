@@ -45,23 +45,33 @@ export default function NotificationBell() {
   }, []);
 
   const markAllRead = useCallback(async () => {
-    for (const n of notifications.filter((n) => !n.is_read)) {
-      await fetch("/api/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ notification_id: n.id }),
-      });
-    }
+    await fetch("/api/notifications", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mark_all: true }),
+    });
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
     setUnread(0);
-  }, [notifications]);
+  }, []);
+
+  // Close on Escape for keyboard users.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
 
   return (
     <div className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="relative p-2 text-on-surface-variant hover:bg-surface-bright rounded-full transition-colors"
+        aria-label={unread > 0 ? `${t("notificationBell")} (${unread} unread)` : t("notificationBell")}
+        aria-expanded={open}
+        className="relative p-2 text-on-surface-variant hover:bg-surface-bright rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
         title={t("notificationBell")}
       >
         <Bell className="w-5 h-5" />
@@ -98,7 +108,8 @@ export default function NotificationBell() {
                   key={n.id}
                   type="button"
                   onClick={() => markRead(n.id)}
-                  className={`w-full text-left rounded-lg p-3 border transition-colors ${
+                  aria-label={`${lang === "ur" && n.title_ur ? n.title_ur : n.title} — mark as read`}
+                  className={`w-full text-left rounded-lg p-3 border transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 ${
                     n.is_read
                       ? "bg-surface-container-low border-outline-variant/20"
                       : "bg-surface-container-high border-primary/40"
