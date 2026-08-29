@@ -199,6 +199,76 @@ function fmtDate(d: string | null | undefined): string {
   });
 }
 
+function esc(v: string | null | undefined): string {
+  return String(v ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// Focused user print: opens a dedicated print window containing ONLY the
+// selected user's details (read-only) — never the surrounding Control Room
+// UI, other users, or action buttons.
+function printUser(u: UserRow): void {
+  const status = u.is_suspended
+    ? "Suspended"
+    : u.is_active
+    ? "Active"
+    : "Inactive";
+
+  const rows: Array<[string, string]> = [
+    ["Name", esc(u.full_name) || "—"],
+    ["Username", u.username ? `@${esc(u.username)}` : "—"],
+    ["Mobile", esc(u.mobile_number) || "—"],
+    ["Account Number", esc(u.account_number) || "—"],
+    ["Payment Method", esc(u.payment_method) || "—"],
+    ["City", esc(u.city) || "—"],
+    ["Address", esc(u.address) || "—"],
+    ["Status", status],
+    ["Registration Date", fmtDate(u.created_at)],
+    [
+      "Profit Activation Date",
+      u.profit_activation_date ? fmtDate(u.profit_activation_date) : "—",
+    ],
+    ["Total Deposited", fmtPKR(u.total_deposited)],
+    ["Total Withdrawn", fmtPKR(u.total_withdrawn)],
+  ];
+
+  const w = window.open("", "_blank", "width=820,height=920");
+  if (!w) return; // popup blocked — admin can allow popups and retry
+
+  w.document.write(`<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>User Details — ${esc(u.full_name) || esc(u.username)}</title>
+<style>
+  @page { size: A4; margin: 18mm; }
+  body { font-family: system-ui, Arial, sans-serif; color: #1b1b1b; margin: 0; }
+  .brand { font-size: 11px; letter-spacing: 3px; color: #65a30d; font-weight: 700; }
+  h1 { font-size: 20px; margin: 2px 0 4px; }
+  .meta { font-size: 11px; color: #6b7280; margin: 0 0 14px; }
+  h2 { font-size: 15px; margin: 0 0 10px; border-bottom: 2px solid #65a30d; padding-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 7px 4px; font-size: 13px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+  td.k { width: 40%; font-weight: 600; color: #374151; }
+</style>
+</head>
+<body>
+  <div class="brand">TDX INVESTMENT</div>
+  <h1>User Details</h1>
+  <p class="meta">Generated ${new Date().toLocaleString("en-PK")}</p>
+  <h2>USER DETAILS</h2>
+  <table>
+    ${rows.map(([k, v]) => `<tr><td class="k">${k}</td><td>${v}</td></tr>`).join("")}
+  </table>
+</body>
+</html>`);
+  w.document.close();
+  w.focus();
+  w.print();
+}
+
 export default function AdminPanel() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
@@ -802,9 +872,9 @@ export default function AdminPanel() {
                 <button onClick={() => exportCsv("users")} className="h-9 rounded-lg bg-surface-bright px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high flex items-center gap-1">
                   <Download className="w-3 h-3" /> {t("export")}
                 </button>
-                <button onClick={() => window.print()} className="h-9 rounded-lg bg-surface-bright px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high flex items-center gap-1">
-                  <Printer className="w-3 h-3" /> {t("printPdf")}
-                </button>
+                <span className="h-9 flex items-center rounded-lg bg-surface-bright px-3 text-xs font-semibold text-on-surface-variant">
+                  <Printer className="w-3 h-3 mr-1" /> {t("printPdf")}: use the print button in a user's Actions column
+                </span>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -847,6 +917,9 @@ export default function AdminPanel() {
                       <td className="px-4 py-3">{fmtDate(u.created_at)}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-1">
+                          <button onClick={() => printUser(u)} title={t("printPdf")} aria-label={`Print details for ${u.full_name || u.username || "user"}`} className="h-8 rounded bg-surface-bright px-2.5 text-xs font-semibold text-on-surface hover:bg-surface-container-high">
+                            <Printer className="w-3 h-3" />
+                          </button>
                           <button onClick={() => toggleSuspend(u)} className="h-8 rounded bg-surface-bright px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high">
                             {u.is_suspended ? t("activate") : t("suspend")}
                           </button>

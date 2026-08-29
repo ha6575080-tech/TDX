@@ -133,7 +133,11 @@ async function sendAdminEmail(opts: {
           <tr><td><b>Package</b></td><td>${opts.packageName}</td></tr>
           <tr><td><b>AI Verdict</b></td><td>${opts.verdict} (${opts.confidence}%)</td></tr>
         </table>
-        <p>Receipt: <a href="${opts.receiptUrl}">View receipt</a></p>
+        <p>Receipt: ${
+          opts.receiptUrl
+            ? `<a href="${opts.receiptUrl}">View receipt (link valid for 1 hour)</a>`
+            : "link unavailable — view via the admin panel"
+        }</p>
       `,
     });
   } catch (err) {
@@ -186,7 +190,7 @@ export async function POST(request: Request) {
   // 2. Fetch the receipt image from Supabase Storage.
   let base64Image = "";
   let mimeType = "image/jpeg";
-  let receiptPublicUrl = "";
+  let receiptSignedUrl = "";
 
   if (deposit.receipt_image_url) {
     const path = deposit.receipt_image_url;
@@ -208,10 +212,22 @@ export async function POST(request: Request) {
       }
     }
 
-    const { data: urlData } = supabase.storage
+    // Private bucket: mint a short-lived (1 hour) signed URL for the admin
+    // email instead of a permanent public URL. Failure is non-fatal — the
+    // deposit record is already stored and the admin can view receipts via
+    // the admin panel (POST /api/admin/receipt).
+    const { data: signedData, error: signedUrlError } = await supabase.storage
       .from("receipts")
-      .getPublicUrl(path);
-    receiptPublicUrl = urlData.publicUrl;
+      .createSignedUrl(path, 3600, { download: false });
+
+    if (signedUrlError || !signedData?.signedUrl) {
+      console.warn(
+        "Could not create signed receipt URL:",
+        signedUrlError?.message ?? "unknown error"
+      );
+    } else {
+      receiptSignedUrl = signedData.signedUrl;
+    }
   }
 
   // 3. Analyze with Gemini (degrades gracefully if no key).
@@ -257,7 +273,7 @@ export async function POST(request: Request) {
     packageName,
     verdict: analysis.verdict,
     confidence: analysis.confidence,
-    receiptUrl: receiptPublicUrl,
+    receiptUrl: receiptSignedUrl,
   });
 
   return NextResponse.json({

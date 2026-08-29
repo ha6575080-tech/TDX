@@ -43,17 +43,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const { data: urlData } = supabase.storage
-    .from("task-screenshots")
-    .getPublicUrl(path);
-  const screenshotUrl = urlData.publicUrl;
-
+  // PRIVATE bucket: store the Storage OBJECT PATH (not a permanent public URL —
+  // a getPublicUrl() link would be dead for a private bucket). Authorized
+  // viewers generate short-lived signed URLs from this path on demand:
+  //   owner  → storage RLS (view own task screenshot) + session-signed URL
+  //   admin  → POST /api/admin/receipt (allowlisted for task-screenshots)
   const { error: updateError } = await supabase
     .from("tasks")
     .update({
       completed: true,
       completed_at: new Date().toISOString(),
-      screenshot_url: screenshotUrl,
+      screenshot_url: path,
     })
     .eq("id", taskId)
     .eq("user_id", userId);
@@ -62,5 +62,5 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ success: true, screenshot_url: screenshotUrl });
+  return NextResponse.json({ success: true, screenshot_url: path });
 }

@@ -8,10 +8,14 @@ export async function GET() {
 
   const supabase = await createServiceRoleClient();
 
+  // NOTE: no profiles(...) embed — deposits has TWO foreign keys to profiles
+  // (user_id and approved_by), so PostgREST cannot infer the relationship
+  // ("more than one relationship was found"). Profiles are fetched explicitly
+  // below using each trusted deposit.user_id.
   const { data: deposits, error: depositsError } = await supabase
     .from("deposits")
     .select(
-      "id, user_id, package_id, amount, receipt_image_url, ai_verdict, ai_confidence, status, uploaded_at, approved_at, invoice_url, admin_notes, profiles(full_name, username, mobile_number), packages(package_name, monthly_return_percent)"
+      "id, user_id, package_id, amount, receipt_image_url, ai_verdict, ai_confidence, status, uploaded_at, approved_at, invoice_url, admin_notes, packages(package_name, monthly_return_percent)"
     )
     .order("uploaded_at", { ascending: false })
     .limit(200);
@@ -20,26 +24,45 @@ export async function GET() {
     return NextResponse.json({ error: depositsError.message }, { status: 500 });
   }
 
+  // One batched profile lookup for all deposit owners (avoids N+1).
+  const userIds = [...new Set((deposits ?? []).map((d: any) => d.user_id))];
+  const profileMap = new Map<string, any>();
+  if (userIds.length > 0) {
+    const { data: profiles, error: profilesError } = await supabase
+      .from("profiles")
+      .select("id, full_name, username, mobile_number")
+      .in("id", userIds);
+    if (profilesError) {
+      return NextResponse.json({ error: profilesError.message }, { status: 500 });
+    }
+    for (const p of profiles ?? []) {
+      profileMap.set(p.id, p);
+    }
+  }
+
   // Parse the joined shape (Supabase returns nested objects).
-  const parsed = (deposits ?? []).map((d: any) => ({
-    id: d.id,
-    user_id: d.user_id,
-    package_id: d.package_id,
-    amount: d.amount,
-    receipt_image_url: d.receipt_image_url,
-    ai_verdict: d.ai_verdict,
-    ai_confidence: d.ai_confidence,
-    status: d.status,
-    uploaded_at: d.uploaded_at,
-    approved_at: d.approved_at,
-    invoice_url: d.invoice_url,
-    admin_notes: d.admin_notes,
-    fullName: d.profiles?.full_name ?? "Unknown",
-    username: d.profiles?.username ?? "Unknown",
-    mobile: d.profiles?.mobile_number ?? "Unknown",
-    packageName: d.packages?.package_name ?? "Unknown",
-    monthlyReturnPercent: d.packages?.monthly_return_percent ?? 0,
-  }));
+  const parsed = (deposits ?? []).map((d: any) => {
+    const profile = profileMap.get(d.user_id);
+    return {
+      id: d.id,
+      user_id: d.user_id,
+      package_id: d.package_id,
+      amount: d.amount,
+      receipt_image_url: d.receipt_image_url,
+      ai_verdict: d.ai_verdict,
+      ai_confidence: d.ai_confidence,
+      status: d.status,
+      uploaded_at: d.uploaded_at,
+      approved_at: d.approved_at,
+      invoice_url: d.invoice_url,
+      admin_notes: d.admin_notes,
+      fullName: profile?.full_name ?? "Unknown",
+      username: profile?.username ?? "Unknown",
+      mobile: profile?.mobile_number ?? "Unknown",
+      packageName: d.packages?.package_name ?? "Unknown",
+      monthlyReturnPercent: d.packages?.monthly_return_percent ?? 0,
+    };
+  });
 
   return NextResponse.json({ deposits: parsed });
 }
@@ -65,11 +88,12 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceRoleClient();
 
-  // 1. Fetch the deposit with user + package info.
+  // 1. Fetch the deposit. No profiles(...) embed — ambiguous (see GET); the
+  //    profile's full_name is not used by this handler anyway.
   const { data: deposit, error: depositError } = await supabase
     .from("deposits")
     .select(
-      "id, user_id, package_id, amount, status, profiles(full_name), packages(package_name, monthly_return_percent)"
+      "id, user_id, package_id, amount, status, packages(package_name, monthly_return_percent)"
     )
     .eq("id", depositId)
     .single();
