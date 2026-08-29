@@ -20,9 +20,7 @@ export async function GET() {
     totalUsersRes,
     activeUsersRes,
     suspendedUsersRes,
-    approvedDepositSumRes,
     pendingDepositsRes,
-    completedWithdrawalsSumRes,
     pendingWithdrawalsRes,
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
@@ -35,15 +33,12 @@ export async function GET() {
       .from("profiles")
       .select("id", { count: "exact", head: true })
       .eq("is_suspended", true),
-    supabase.from("deposits").select("amount.sum()").eq("status", "approved"),
+    supabase.from("deposits").select("amount").eq("status", "approved"),
     supabase
       .from("deposits")
       .select("id", { count: "exact", head: true })
       .eq("status", "pending"),
-    supabase
-      .from("withdrawals")
-      .select("amount.sum()")
-      .eq("status", "completed"),
+    supabase.from("withdrawals").select("amount").eq("status", "completed"),
     supabase
       .from("withdrawals")
       .select("id", { count: "exact", head: true })
@@ -54,25 +49,41 @@ export async function GET() {
     totalUsersRes.error ||
     activeUsersRes.error ||
     suspendedUsersRes.error ||
-    approvedDepositSumRes.error ||
     pendingDepositsRes.error ||
-    completedWithdrawalsSumRes.error ||
     pendingWithdrawalsRes.error;
   if (firstError) {
     return NextResponse.json({ error: firstError.message }, { status: 500 });
   }
 
-  const sumOf = (res: { data: Array<{ sum: number | null }> | null }) =>
-    res.data?.[0]?.sum ?? 0;
+  // Approved-deposit total: server-side sum of the numeric column
+  // (avoids PostgREST sum() cast issues on numeric; bounded to status).
+  const { data: approvedRows, error: approvedErr } = await supabase
+    .from("deposits")
+    .select("amount")
+    .eq("status", "approved");
+  if (approvedErr) return NextResponse.json({ error: approvedErr.message }, { status: 500 });
+  const totalApprovedDeposits = (approvedRows ?? []).reduce(
+    (s: number, r: { amount: unknown }) => s + (Number(r.amount) || 0),
+    0
+  );
+
+  const { data: completedRows, error: completedErr } = await supabase
+    .from("withdrawals")
+    .select("amount")
+    .eq("status", "completed");
+  if (completedErr) return NextResponse.json({ error: completedErr.message }, { status: 500 });
+  const totalWithdrawals = (completedRows ?? []).reduce(
+    (s: number, r: { amount: unknown }) => s + (Number(r.amount) || 0),
+    0
+  );
 
   return NextResponse.json({
     totalUsers: totalUsersRes.count ?? 0,
     activeUsers: activeUsersRes.count ?? 0,
     suspendedUsers: suspendedUsersRes.count ?? 0,
-    totalApprovedDeposits: sumOf(approvedDepositSumRes),
-    totalWithdrawals: sumOf(completedWithdrawalsSumRes),
+    totalApprovedDeposits,
+    totalWithdrawals,
     pendingDeposits: pendingDepositsRes.count ?? 0,
     pendingWithdrawals: pendingWithdrawalsRes.count ?? 0,
   });
 }
-

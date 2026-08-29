@@ -353,7 +353,13 @@ export default function AdminPanel() {
     setError(null);
     try {
       const [ov, us, dp, wd, an, po, rt, ug] = await Promise.all([
-        fetch("/api/admin/overview").then((r) => r.json()),
+        // Overview is fetched separately so a failure shows a clear
+        // error state instead of silently rendering seven zeroes — and
+        // does not block the rest of the admin data.
+        fetch("/api/admin/overview").then(async (r) => {
+          if (!r.ok) return { __error: "Unable to load overview metrics. Please refresh." };
+          return await r.json();
+        }),
         fetch("/api/admin/users").then((r) => r.json()),
         fetch("/api/admin/deposits").then((r) => r.json()),
         fetch("/api/admin/withdrawals").then((r) => r.json()),
@@ -362,7 +368,14 @@ export default function AdminPanel() {
         fetch("/api/admin/returns").then((r) => r.json()),
         fetch("/api/admin/upgrades").then((r) => r.json()),
       ]);
-      setOverview(ov);
+      setOverview(
+        ov && typeof ov === "object" && "__error" in ov ? null : (ov as Overview)
+      );
+      if (ov && typeof ov === "object" && "__error" in ov) {
+        setError((ov as { __error: string }).__error);
+      } else {
+        setError(null);
+      }
       setUsers(us.users ?? []);
       setDeposits(dp.deposits ?? []);
       setWithdrawals(wd.withdrawals ?? []);

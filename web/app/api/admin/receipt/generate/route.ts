@@ -1,17 +1,14 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
 
 // Schema notes:
 // - deposits has no created_at — the timestamp column is uploaded_at.
 // - There is no payouts table — monthly payouts are rows in `profits`
 //   (id, user_id, month, year, amount, status, payout_date).
+// - deposits/profits each have more than one FK to profiles (e.g. deposits:
+//   user_id + approved_by), so a profiles(...) embed is ambiguous. The
+//   profile is fetched explicitly below using the record's trusted user_id.
 
 export async function POST(req: Request) {
   const { error } = await requireAdmin();
@@ -28,11 +25,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "type and id required" }, { status: 400 });
   }
 
-  // Fetch deposit or payout
+  const supabase = await createServiceRoleClient();
+
+  // 1. Fetch the deposit or payout record WITHOUT any profiles embed.
   const table = type === "deposit" ? "deposits" : "profits";
-  const { data: record, error: fetchErr } = await supabaseAdmin
+  const { data: record, error: fetchErr } = await supabase
     .from(table)
-    .select("*, profiles!inner(full_name, mobile_number, username, city)")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -40,13 +39,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Record not found" }, { status: 404 });
   }
 
-  const rec = record as Record<string, unknown> & {
-    profiles: {
-      full_name: string; mobile_number: string;
-      username: string; city: string | null;
-    } | null;
-  };
-  const prof = rec.profiles;
+  // 2. Fetch the profile explicitly using the record's trusted user_id.
+  const userId = (record as { user_id: string }).user_id;
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name, mobile_number, username, city")
+    .eq("id", userId)
+    .single();
+
+  const rec = record as Record<string, unknown>;
+  const prof = profile ?? null;
 
   return NextResponse.json({
     ok: true,
