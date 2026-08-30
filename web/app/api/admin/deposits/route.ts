@@ -1,6 +1,49 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { sendPushToSubscriptions } from "@/lib/push";
+
+/**
+ * Create an in-app notification for a specific member and attempt best-effort
+ * push delivery. Uses the existing `notifications` table (which has
+ * owner-only RLS: user_id = auth.uid()) and the existing push helper from
+ * `lib/push.ts`. Neither failure is allowed to affect the financial state
+ * transition that has already been applied successfully.
+ */
+async function notifyMember(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  userId: string,
+  title: string,
+  message: string,
+  title_ur: string,
+  message_ur: string
+) {
+  // In-app notification (persisted, visible in NotificationBell/inbox).
+  await supabase.from("notifications").insert({
+    user_id: userId,
+    title,
+    message,
+    title_ur,
+    message_ur,
+    is_read: false,
+  });
+
+  // Best-effort push — never blocks or fails the approval flow.
+  try {
+    const { data: subs } = await supabase
+      .from("push_subscriptions")
+      .select("endpoint, p256dh, auth")
+      .eq("user_id", userId);
+    if (subs && subs.length > 0) {
+      await sendPushToSubscriptions(
+        subs as Array<{ endpoint: string; p256dh: string; auth: string }>,
+        JSON.stringify({ title, message })
+      );
+    }
+  } catch {
+    // Push is best-effort; the in-app notification is the authoritative copy.
+  }
+}
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -93,7 +136,7 @@ export async function POST(request: Request) {
   const { data: deposit, error: depositError } = await supabase
     .from("deposits")
     .select(
-      "id, user_id, package_id, amount, status, packages(package_name, monthly_return_percent)"
+            "id, user_id, package_id, amount, status, approved_at, packages(package_name, monthly_return_percent)"
     )
     .eq("id", depositId)
     .single();
@@ -168,9 +211,23 @@ export async function POST(request: Request) {
         "مبارک ہو! آپ کا ڈپازٹ منظور ہو گیا ہے اور آپ کا منافع پروگرام اب فعال ہے۔",
       is_read: false,
     });
-    if (msgError) {
+        if (msgError) {
       return NextResponse.json({ error: msgError.message }, { status: 500 });
     }
+
+    // Deposit approval notification (amount + cycle start are trusted, derived
+    // server-side). Best-effort — failure must not roll back the financial state.
+    const cycleDate = new Date(deposit.approved_at ?? now).toLocaleDateString(
+      "en-PK"
+    );
+    await notifyMember(
+      supabase,
+      userId,
+      "Investment Approved",
+      `Your investment of ${Number(deposit.amount).toLocaleString()} PKR has been approved. Your profit cycle starts ${cycleDate}.`,
+      "سرمایہ کاری منظور",
+      `آپ کی سرمایہ کاری ${Number(deposit.amount).toLocaleString()} پاکستانی روپی منظور ہو گئی ہے۔ آپ کا منافع چکر ${cycleDate} سے شروع ہوتا ہے۔`
+    );
 
     return NextResponse.json({ success: true, status: "approved" });
   }
@@ -206,9 +263,20 @@ export async function POST(request: Request) {
         "آپ کی ڈپازٹ رقم ابھی موصول نہیں ہوئی، براہ کرم دوبارہ کوشش کریں اور حقیقی اسکرین شاٹ اپ لوڈ کریں۔",
       is_read: false,
     });
-    if (msgError) {
+        if (msgError) {
       return NextResponse.json({ error: msgError.message }, { status: 500 });
     }
+
+    // Deposit rejection notification (amount is trusted, derived server-side).
+    // Best-effort — failure must not roll back the financial state.
+    await notifyMember(
+      supabase,
+      userId,
+      "Deposit Update",
+      `Your deposit of ${Number(deposit.amount).toLocaleString()} PKR was not approved. Please review the details or contact support.`,
+      "ڈپازٹ کی اپ ڈیٹ",
+      `آپ کی ڈپازٹ ${Number(deposit.amount).toLocaleString()} پاکستانی روپی منظور نہیں ہوئی۔ براہ کرم تفصیلات کا جائزہ لیں یا رابطہ کریں۔`
+    );
 
     return NextResponse.json({ success: true, status: "rejected" });
   }
