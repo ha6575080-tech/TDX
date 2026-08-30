@@ -114,7 +114,7 @@ export default function ChatPage() {
   const senderLabel = (sender: string) => {
     switch (sender) {
       case "user":
-        return lang === "ur" ? "آپ" : "You";
+        return lang === "ur" ? "آپ" : lang === "sd" ? "توهان" : "You";
       case "ai":
         return t("aiBot");
       case "admin":

@@ -40,6 +40,12 @@ export async function POST(req: Request) {
 
   const { user_id, message, language } = body;
 
+  // Language selection: "en" (default) | "ur" | "sd".
+  const lang = language === "ur" || language === "sd" ? language : "en";
+  // Localized helper for system-facing strings (never user-generated content).
+  const sysText = (en: string, ur: string, sd: string) =>
+    lang === "ur" ? ur : lang === "sd" ? sd : en;
+
   // Allow the authenticated user id to be omitted (the server derives it),
   // but it must match if provided.
   if (!message || typeof message !== "string" || message.trim().length === 0) {
@@ -84,9 +90,11 @@ export async function POST(req: Request) {
 
   // 3. If admin is online, just confirm — admin replies manually.
   if (adminOnline) {
-    const sysMsg = language === "ur"
-      ? "ایڈمن فی الحال آن لائن ہے۔ وہ جلد آپ کو جواب دے گا۔"
-      : "An admin is online and will reply shortly.";
+    const sysMsg = sysText(
+      "An admin is online and will reply shortly.",
+      "ایڈمن فی الحال آن لائن ہے۔ وہ جلد آپ کو جواب دے گا۔",
+      "ايڊمن في الحال آن لائن آهي. هو جلد توهان کي جواب ڏيندو."
+    );
     // Best-effort system message — the user prompt is already saved above, so
     // a failure here should not block the response.
     try {
@@ -107,9 +115,16 @@ export async function POST(req: Request) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 12000);
   try {
-    const langPrompt = language === "ur"
-      ? "You are TDX Investment support assistant. Reply ONLY in Urdu. Keep it short and helpful.\n\nUser question: "
-      : "You are TDX Investment support assistant. Reply ONLY in English. Keep it short and helpful.\n\nUser question: ";
+    // Reply language follows the user's selection. The model must understand
+    // the question in any of the supported forms (English, Urdu, Roman Urdu,
+    // Sindhi, Roman Sindhi) but answer strictly in the selected language.
+    // For Sindhi: natural سنڌي in the Sindhi Arabic script — never Urdu.
+    const langPrompt =
+      lang === "ur"
+        ? "You are TDX Investment support assistant. Reply ONLY in Urdu. Understand the user's question even if it is written in English, Urdu, Roman Urdu, Sindhi, or Roman Sindhi. Keep it short and helpful.\n\nUser question: "
+        : lang === "sd"
+        ? "You are TDX Investment support assistant. Reply ONLY in Sindhi (سنڌي), written in the Sindhi Arabic script. Never reply in Urdu or English — the reply must be natural Sindhi, not Urdu. Understand the user's question even if it is written in English, Urdu, Roman Urdu, Sindhi, or Roman Sindhi. Keep it short and helpful.\n\nUser question: "
+        : "You are TDX Investment support assistant. Reply ONLY in English. Understand the user's question even if it is written in English, Urdu, Roman Urdu, Sindhi, or Roman Sindhi. Keep it short and helpful.\n\nUser question: ";
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${process.env.GEMINI_API_KEY}`,
@@ -147,9 +162,11 @@ export async function POST(req: Request) {
   }
 
   // 5. AI failed → save system message, admin will reply later.
-  const fallbackMsg = language === "ur"
-    ? "آپ کا پیغام محفوظ ہو گیا ہے۔ ایڈمن آن لائن ہونے پر جواب دے گا۔"
-    : "Your message has been saved. The admin will reply when online.";
+  const fallbackMsg = sysText(
+    "Your message has been saved. The admin will reply when online.",
+    "آپ کا پیغام محفوظ ہو گیا ہے۔ ایڈمن آن لائن ہونے پر جواب دے گا۔",
+    "توهان جو پيغام محفوظ ٿي ويو آهي. ايڊمن آن لائن ٿيڻ تي جواب ڏيندو."
+  );
   // Best-effort — always return a response even if this insert fails.
   try {
     await supabaseAdmin.from("messages").insert({

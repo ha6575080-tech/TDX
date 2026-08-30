@@ -62,18 +62,23 @@ export default function ChatBubble() {
       ]);
 
       // Safe, user-facing messages (never expose server internals).
-      const genericMsg =
-        lang === "ur"
-          ? "معذرت، چیٹ سپورٹ عارضی طور پر دستیاب نہیں ہے۔ کچھ دیر بعد دوبارہ کوشش کریں۔"
-          : "Sorry, chat support is temporarily unavailable. Please try again in a moment.";
-      const sessionMsg =
-        lang === "ur"
-          ? "آپ کا سیشن ختم ہو گیا ہے۔ براہ کرم پیج ریفریش کریں اور دوبارہ کوشش کریں۔"
-          : "Your session may have expired. Please refresh the page and try again.";
-      const connMsg =
-        lang === "ur"
-          ? "نیٹ ورک کنکشن کا مسئلہ پیش آیا۔ براہ کرم دوبارہ کوشش کریں۔"
-          : "A network problem occurred. Please try again.";
+      const safeMsg = (en: string, ur: string, sd: string) =>
+        lang === "ur" ? ur : lang === "sd" ? sd : en;
+      const genericMsg = safeMsg(
+        "Sorry, chat support is temporarily unavailable. Please try again in a moment.",
+        "معذرت، چیٹ سپورٹ عارضی طور پر دستیاب نہیں ہے۔ کچھ دیر بعد دوبارہ کوشش کریں۔",
+        "معافي ڪريو، چيٽ سپورٽ عارضي طور تي دستياب ناهي. ٿوري دير بعد ٻيهر ڪوشش ڪريو."
+      );
+      const sessionMsg = safeMsg(
+        "Your session may have expired. Please refresh the page and try again.",
+        "آپ کا سیشن ختم ہو گیا ہے۔ براہ کرم پیج ریفریش کریں اور دوبارہ کوشش کریں۔",
+        "توهان جو سيسن ختم ٿي ويو آهي. مهرباني ڪري صفو ريفريش ڪريو ۽ ٻيهر ڪوشش ڪريو."
+      );
+      const connMsg = safeMsg(
+        "A network problem occurred. Please try again.",
+        "نیٹ ورک کنکشن کا مسئلہ پیش آیا۔ براہ کرم دوبارہ کوشش کریں۔",
+        "نيٽ ورڪ جي ڪنيڪشن ۾ مسئلو پيش آيو. مهرباني ڪري ٻيهر ڪوشش ڪريو."
+      );
 
       try {
         const res = await fetch("/api/chat", {
@@ -158,7 +163,7 @@ export default function ChatBubble() {
               messages.map((m) => (
                 <div key={m.id} className="flex flex-col">
                   <span className="mb-1 text-xs font-semibold text-on-surface-variant">
-                    {m.sender === "user" ? (lang === "ur" ? "آپ" : "You") : m.sender === "admin" ? "Admin" : m.sender === "ai" ? t("aiBot") : "System"}
+                    {m.sender === "user" ? (lang === "ur" ? "آپ" : lang === "sd" ? "توهان" : "You") : m.sender === "admin" ? "Admin" : m.sender === "ai" ? t("aiBot") : "System"}
                   </span>
                   <div className={`max-w-[85%] rounded-lg px-3 py-2 text-sm ${
                     m.sender === "user"

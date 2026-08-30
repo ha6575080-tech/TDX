@@ -7,7 +7,6 @@ import {
   ListChecks,
   BarChart3,
   MessageCircle,
-  Languages,
   History,
   Target,
 } from "lucide-react";
@@ -187,16 +186,31 @@ export function Gauge({
 /* ===== LanguageToggle ===== */
 export function LanguageToggle() {
   const { lang, setLang } = useI18n();
+  const options: { code: "en" | "ur" | "sd"; label: string }[] = [
+    { code: "en", label: "English" },
+    { code: "ur", label: "اردو" },
+    { code: "sd", label: "سنڌي" },
+  ];
   return (
-    <button
-      type="button"
-      onClick={() => setLang(lang === "en" ? "ur" : "en")}
-      className="h-9 rounded-full border border-outline-variant/50 bg-surface-container-low px-3 text-xs font-semibold text-on-surface-variant hover:bg-surface-bright hover:text-primary transition-colors flex items-center gap-1"
-      title="Toggle language"
+    <div
+      className="h-9 rounded-full border border-outline-variant/50 bg-surface-container-low flex items-center p-0.5"
+      title="Select language"
     >
-      <Languages className="w-4 h-4" />
-      {lang === "en" ? "اردو" : "EN"}
-    </button>
+      {options.map((o) => (
+        <button
+          key={o.code}
+          type="button"
+          onClick={() => setLang(o.code)}
+          className={`h-8 px-2.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+            lang === o.code
+              ? "bg-primary text-on-primary"
+              : "text-on-surface-variant hover:text-primary"
+          }`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
