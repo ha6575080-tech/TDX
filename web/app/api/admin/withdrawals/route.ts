@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { isAllowedMonthlyRate } from "@/lib/investment";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -18,7 +19,7 @@ export async function GET() {
     .limit(200);
 
   if (withdrawalsError) {
-    return NextResponse.json({ error: withdrawalsError.message }, { status: 500 });
+    return internalError("admin/withdrawals", withdrawalsError);
   }
 
   interface WithdrawalRow {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
 
   if (fetchError || !withdrawal) {
     return NextResponse.json(
-      { error: fetchError?.message ?? "Withdrawal not found" },
+      { error: "Withdrawal not found" },
       { status: 404 }
     );
   }
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
     );
 
     if (rpcError) {
-      return NextResponse.json({ error: rpcError.message }, { status: 500 });
+      return internalError("admin/withdrawals", rpcError);
     }
 
     const result = rpcResult as {
@@ -166,7 +167,7 @@ export async function POST(request: Request) {
       .eq("status", "pending")
       .select("id");
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/withdrawals", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -183,7 +184,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/withdrawals", msgError);
     }
 
     return NextResponse.json({ success: true, status: "rejected" });

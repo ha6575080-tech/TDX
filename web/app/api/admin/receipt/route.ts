@@ -35,7 +35,7 @@ export async function POST(request: Request) {
 
   if (signedUrlError || !data?.signedUrl) {
     return NextResponse.json(
-      { error: signedUrlError?.message ?? "Could not create signed URL" },
+      { error: "Could not create signed URL" },
       { status: 500 }
     );
   }

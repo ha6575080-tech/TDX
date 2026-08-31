@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
+import { internalError, escapeHtml, logServerError } from "@/lib/api-errors";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,7 +39,7 @@ export async function GET(req: Request) {
     .lte("next_payout_date", tomorrow.toISOString())
     .gte("next_payout_date", now.toISOString());
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return internalError("cron/payout-reminders", error);
   if (!dueDeposits || dueDeposits.length === 0) {
     return NextResponse.json({ ok: true, due: 0 });
   }
@@ -49,7 +50,7 @@ export async function GET(req: Request) {
     const pct = (d.monthly_profit_pct as number) || 8;
     const payout = ((d.amount as number) * (pct as number)) / 100;
     const dueDate = new Date(d.next_payout_date as string).toLocaleDateString();
-    return `• ${profile.full_name || "N/A"} (${profile.mobile_number || "N/A"}) — Rs ${d.amount} @ ${pct}% = Rs ${payout} — Due: ${dueDate}`;
+    return `• ${escapeHtml((profile.full_name as string) ?? "N/A")} (${escapeHtml((profile.mobile_number as string) ?? "N/A")}) — Rs ${d.amount} @ ${pct}% = Rs ${payout} — Due: ${dueDate}`;
   });
 
   const html = `
@@ -68,7 +69,7 @@ export async function GET(req: Request) {
       html,
     });
   } catch (e) {
-    console.error("Email failed:", e);
+    logServerError("cron/payout-reminders", e, "email failed");
   }
 
   // Also insert in-app notification for admin

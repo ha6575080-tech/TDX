@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET(request: Request) {
   const { error } = await requireAdmin();
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: true });
 
     if (messagesError) {
-      return NextResponse.json({ error: messagesError.message }, { status: 500 });
+      return internalError("admin/chat", messagesError);
     }
 
     return NextResponse.json({ messages: messages ?? [] });
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false });
 
   if (messagesError) {
-    return NextResponse.json({ error: messagesError.message }, { status: 500 });
+    return internalError("admin/chat", messagesError);
   }
 
   const byUser = new Map<
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return internalError("admin/chat", insertError);
   }
 
   return NextResponse.json({ success: true });

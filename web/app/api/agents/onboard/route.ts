@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
+import { internalError, logServerError } from "@/lib/api-errors";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,7 +56,8 @@ export async function POST(req: Request) {
   });
 
   if (signUpErr) {
-    return NextResponse.json({ error: "Failed to create member account: " + signUpErr.message }, { status: 500 });
+    logServerError("agents/onboard", signUpErr, "create member account failed");
+    return NextResponse.json({ error: "Failed to create member account" }, { status: 500 });
   }
 
   // Create/update profile. The handle_new_user() trigger may already have
@@ -79,7 +81,8 @@ export async function POST(req: Request) {
   });
 
   if (profileErr) {
-    return NextResponse.json({ error: "Failed to create member profile: " + profileErr.message }, { status: 500 });
+    logServerError("agents/onboard", profileErr, "create member profile failed");
+    return NextResponse.json({ error: "Failed to create member profile" }, { status: 500 });
   }
 
   // Create deposit record
@@ -92,7 +95,8 @@ export async function POST(req: Request) {
   });
 
   if (depositErr) {
-    return NextResponse.json({ error: "Failed to create deposit record: " + depositErr.message }, { status: 500 });
+    logServerError("agents/onboard", depositErr, "create deposit record failed");
+    return NextResponse.json({ error: "Failed to create deposit record" }, { status: 500 });
   }
 
   return NextResponse.json({
@@ -114,7 +118,7 @@ export async function GET() {
     .eq("agent_id", user!.id)
     .order("created_at", { ascending: false });
 
-  if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
+  if (qErr) return internalError("agents/onboard", qErr);
 
   const rows = (members || []).map((m) => {
     const rec = m as {

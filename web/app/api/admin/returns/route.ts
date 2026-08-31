@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 const RETURN_WINDOW_DAYS = 60;
 
@@ -25,7 +26,7 @@ export async function GET() {
     .limit(200);
 
   if (returnsError) {
-    return NextResponse.json({ error: returnsError.message }, { status: 500 });
+    return internalError("admin/returns", returnsError);
   }
 
   const parsed = (returns ?? []).map((r: any) => ({
@@ -82,7 +83,7 @@ export async function POST(request: Request) {
 
   if (fetchError || !ret) {
     return NextResponse.json(
-      { error: fetchError?.message ?? "Return request not found" },
+      { error: "Return request not found" },
       { status: 404 }
     );
   }
@@ -123,7 +124,7 @@ export async function POST(request: Request) {
       .select("id");
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/returns", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -178,7 +179,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/returns", msgError);
     }
 
     // Audit trail.
@@ -214,7 +215,7 @@ export async function POST(request: Request) {
       .eq("status", "requested")
       .select("id");
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/returns", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/returns", msgError);
     }
 
     await supabase.from("financial_audit_log").insert({
@@ -278,7 +279,7 @@ export async function POST(request: Request) {
       .select("id");
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/returns", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -307,7 +308,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/returns", msgError);
     }
 
     await supabase.from("financial_audit_log").insert({

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { extractErrorInfo } from "@/lib/errors";
 import { computeSummaryTotals } from "@/lib/account-summary";
+import { internalError } from "@/lib/api-errors";
 
 /**
  * Personal goals — planning/engagement feature. NOT financial advice.
@@ -61,7 +62,7 @@ export async function GET() {
     return NextResponse.json({ error: info.friendly }, { status: 500 });
   }
   if (profileRes.error) {
-    return NextResponse.json({ error: profileRes.error.message }, { status: 500 });
+    return internalError("goals", profileRes.error);
   }
 
   // Authoritative progress basis — same numbers as the dashboard summary.

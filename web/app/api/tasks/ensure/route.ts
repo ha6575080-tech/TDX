@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureAndLoadTasks } from "@/lib/tasks";
 import { requireUser } from "@/lib/auth";
+import { logServerError } from "@/lib/api-errors";
 
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
@@ -27,9 +28,7 @@ export async function POST(request: Request) {
     const result = await ensureAndLoadTasks(userId);
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to load tasks" },
-      { status: 500 }
-    );
+    logServerError("tasks/ensure", err, "failed to load tasks");
+    return NextResponse.json({ error: "Failed to load tasks" }, { status: 500 });
   }
 }

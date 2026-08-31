@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import nodemailer from "nodemailer";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 const SMTP_USER = process.env.SMTP_USER ?? "";
 const SMTP_PASS = process.env.SMTP_PASS ?? "";
@@ -22,7 +23,7 @@ export async function GET() {
     .limit(200);
 
   if (profitsError) {
-    return NextResponse.json({ error: profitsError.message }, { status: 500 });
+    return internalError("admin/payouts", profitsError);
   }
 
   const now = Date.now();
@@ -81,7 +82,7 @@ export async function POST(request: Request) {
 
   if (fetchError || !profit) {
     return NextResponse.json(
-      { error: fetchError?.message ?? "Profit not found" },
+      { error: "Profit not found" },
       { status: 404 }
     );
   }
@@ -96,7 +97,7 @@ export async function POST(request: Request) {
       .eq("status", "pending")
       .select("id");
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/payouts", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -122,7 +123,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/payouts", msgError);
     }
 
     return NextResponse.json({ success: true, status: "paid" });
@@ -148,7 +149,7 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ success: true, emailed: true });
     } catch (err) {
-      console.warn("Failed to send payout reminder email:", err);
+      logServerWarn("admin/payouts", err, "failed to send payout reminder email");
       return NextResponse.json({ success: true, emailed: false });
     }
   }

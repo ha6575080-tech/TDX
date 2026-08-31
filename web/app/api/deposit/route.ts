@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import nodemailer from "nodemailer";
+import { internalError, escapeHtml, logServerWarn } from "@/lib/api-errors";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 const SMTP_USER = process.env.SMTP_USER ?? "";
@@ -88,7 +89,7 @@ async function analyzeReceiptWithGemini(
     }
   }
 
-  console.warn("Gemini analysis failed:", lastError);
+  logServerWarn("deposit", lastError, "gemini analysis failed");
   return {
     verdict: "uncertain",
     confidence: 0,
@@ -122,26 +123,26 @@ async function sendAdminEmail(opts: {
     await transporter.sendMail({
       from: SMTP_USER,
       to: ADMIN_EMAIL,
-      subject: `New Deposit Request — ${opts.fullName} (${opts.username})`,
+      subject: `New Deposit Request — ${escapeHtml(opts.fullName)} (${escapeHtml(opts.username)})`,
       html: `
         <h2>New Deposit Request</h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-          <tr><td><b>Full Name</b></td><td>${opts.fullName}</td></tr>
-          <tr><td><b>Username</b></td><td>${opts.username}</td></tr>
-          <tr><td><b>Mobile</b></td><td>${opts.mobile}</td></tr>
-          <tr><td><b>Amount</b></td><td>${opts.amount} PKR</td></tr>
-          <tr><td><b>Package</b></td><td>${opts.packageName}</td></tr>
-          <tr><td><b>AI Verdict</b></td><td>${opts.verdict} (${opts.confidence}%)</td></tr>
+          <tr><td><b>Full Name</b></td><td>${escapeHtml(opts.fullName)}</td></tr>
+          <tr><td><b>Username</b></td><td>${escapeHtml(opts.username)}</td></tr>
+          <tr><td><b>Mobile</b></td><td>${escapeHtml(opts.mobile)}</td></tr>
+          <tr><td><b>Amount</b></td><td>${escapeHtml(opts.amount)} PKR</td></tr>
+          <tr><td><b>Package</b></td><td>${escapeHtml(opts.packageName)}</td></tr>
+          <tr><td><b>AI Verdict</b></td><td>${escapeHtml(opts.verdict)} (${escapeHtml(opts.confidence)}%)</td></tr>
         </table>
         <p>Receipt: ${
           opts.receiptUrl
-            ? `<a href="${opts.receiptUrl}">View receipt (link valid for 1 hour)</a>`
+            ? `<a href="${escapeHtml(opts.receiptUrl)}">View receipt (link valid for 1 hour)</a>`
             : "link unavailable — view via the admin panel"
         }</p>
       `,
     });
   } catch (err) {
-    console.warn("Failed to send admin email:", err);
+    logServerWarn("deposit", err, "failed to send admin email");
   }
 }
 
@@ -182,7 +183,7 @@ export async function POST(request: Request) {
 
   if (depositError || !deposit) {
     return NextResponse.json(
-      { error: depositError?.message ?? "Deposit not found" },
+      { error: "Deposit not found" },
       { status: 404 }
     );
   }
@@ -221,10 +222,7 @@ export async function POST(request: Request) {
       .createSignedUrl(path, 3600, { download: false });
 
     if (signedUrlError || !signedData?.signedUrl) {
-      console.warn(
-        "Could not create signed receipt URL:",
-        signedUrlError?.message ?? "unknown error"
-      );
+      logServerWarn("deposit", signedUrlError, "could not create signed receipt URL");
     } else {
       receiptSignedUrl = signedData.signedUrl;
     }
@@ -243,7 +241,7 @@ export async function POST(request: Request) {
     .eq("id", depositId);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return internalError("deposit", updateError);
   }
 
   // 5. Fetch user profile for the email.

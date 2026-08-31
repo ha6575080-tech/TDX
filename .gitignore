@@ -14,3 +14,5 @@ build/
 .turbo/
 .vercel
 .env*
+# Exception: the placeholder template is version-controlled (never real values)
+!.env.example

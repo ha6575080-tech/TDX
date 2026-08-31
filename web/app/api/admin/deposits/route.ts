@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { sendPushToSubscriptions } from "@/lib/push";
+import { internalError } from "@/lib/api-errors";
 
 /**
  * Create an in-app notification for a specific member and attempt best-effort
@@ -64,7 +65,7 @@ export async function GET() {
     .limit(200);
 
   if (depositsError) {
-    return NextResponse.json({ error: depositsError.message }, { status: 500 });
+    return internalError("admin/deposits", depositsError);
   }
 
   // One batched profile lookup for all deposit owners (avoids N+1).
@@ -76,7 +77,7 @@ export async function GET() {
       .select("id, full_name, username, mobile_number")
       .in("id", userIds);
     if (profilesError) {
-      return NextResponse.json({ error: profilesError.message }, { status: 500 });
+      return internalError("admin/deposits", profilesError);
     }
     for (const p of profiles ?? []) {
       profileMap.set(p.id, p);
@@ -143,7 +144,7 @@ export async function POST(request: Request) {
 
   if (depositError || !deposit) {
     return NextResponse.json(
-      { error: depositError?.message ?? "Deposit not found" },
+      { error: "Deposit not found" },
       { status: 404 }
     );
   }
@@ -171,7 +172,7 @@ export async function POST(request: Request) {
       .eq("status", EXPECTED_STATUS)
       .select("id");
     if (updateDepositError) {
-      return NextResponse.json({ error: updateDepositError.message }, { status: 500 });
+      return internalError("admin/deposits", updateDepositError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -192,7 +193,7 @@ export async function POST(request: Request) {
       })
       .eq("id", userId);
     if (updateProfileError) {
-      return NextResponse.json({ error: updateProfileError.message }, { status: 500 });
+      return internalError("admin/deposits", updateProfileError);
     }
 
     // 2c. NOTE: no profit row is created at approval anymore. Monthly profit
@@ -212,7 +213,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
         if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/deposits", msgError);
     }
 
     // Deposit approval notification (amount + cycle start are trusted, derived
@@ -244,7 +245,7 @@ export async function POST(request: Request) {
       .eq("status", EXPECTED_STATUS)
       .select("id");
     if (updateDepositError) {
-      return NextResponse.json({ error: updateDepositError.message }, { status: 500 });
+      return internalError("admin/deposits", updateDepositError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -264,7 +265,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
         if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/deposits", msgError);
     }
 
     // Deposit rejection notification (amount is trusted, derived server-side).

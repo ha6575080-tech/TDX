@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 // GET — admin overview metrics (aggregate only; never returns raw rows).
 //
@@ -52,7 +53,7 @@ export async function GET() {
     pendingDepositsRes.error ||
     pendingWithdrawalsRes.error;
   if (firstError) {
-    return NextResponse.json({ error: firstError.message }, { status: 500 });
+    return internalError("admin/overview", firstError);
   }
 
   // Approved-deposit total: server-side sum of the numeric column
@@ -61,7 +62,7 @@ export async function GET() {
     .from("deposits")
     .select("amount")
     .eq("status", "approved");
-  if (approvedErr) return NextResponse.json({ error: approvedErr.message }, { status: 500 });
+  if (approvedErr) return internalError("admin/overview", approvedErr);
   const totalApprovedDeposits = (approvedRows ?? []).reduce(
     (s: number, r: { amount: unknown }) => s + (Number(r.amount) || 0),
     0
@@ -71,7 +72,7 @@ export async function GET() {
     .from("withdrawals")
     .select("amount")
     .eq("status", "completed");
-  if (completedErr) return NextResponse.json({ error: completedErr.message }, { status: 500 });
+  if (completedErr) return internalError("admin/overview", completedErr);
   const totalWithdrawals = (completedRows ?? []).reduce(
     (s: number, r: { amount: unknown }) => s + (Number(r.amount) || 0),
     0

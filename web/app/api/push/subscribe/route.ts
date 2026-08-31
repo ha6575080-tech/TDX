@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { internalError } from "@/lib/api-errors";
 
 interface PushSub {
   endpoint?: string;
@@ -52,7 +53,7 @@ export async function POST(request: Request) {
     );
 
   if (upsertError) {
-    return NextResponse.json({ error: upsertError.message }, { status: 500 });
+    return internalError("push/subscribe", upsertError);
   }
 
   return NextResponse.json({ success: true });

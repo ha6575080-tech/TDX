@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import nodemailer from "nodemailer";
+import { internalError, escapeHtml, logServerWarn } from "@/lib/api-errors";
 
 const SMTP_USER = process.env.SMTP_USER ?? "";
 const SMTP_PASS = process.env.SMTP_PASS ?? "";
@@ -27,7 +28,7 @@ export async function POST() {
   );
 
   if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    return internalError("returns/request", rpcError);
   }
 
   const result = rpcResult as {
@@ -87,13 +88,13 @@ export async function POST() {
       await transporter.sendMail({
         from: SMTP_USER,
         to: ADMIN_EMAIL,
-        subject: `New Return Investment Request — ${profile?.full_name ?? "Member"}`,
+        subject: `New Return Investment Request — ${escapeHtml(profile?.full_name ?? "Member")}`,
         html: `
           <h2>New Return Investment Request</h2>
           <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-            <tr><td><b>Member Name</b></td><td>${profile?.full_name ?? "Unknown"}</td></tr>
-            <tr><td><b>Member ID</b></td><td>${user.id}</td></tr>
-            <tr><td><b>Username</b></td><td>${profile?.username ?? "Unknown"}</td></tr>
+            <tr><td><b>Member Name</b></td><td>${escapeHtml(profile?.full_name ?? "Unknown")}</td></tr>
+            <tr><td><b>Member ID</b></td><td>${escapeHtml(user.id)}</td></tr>
+            <tr><td><b>Username</b></td><td>${escapeHtml(profile?.username ?? "Unknown")}</td></tr>
             <tr><td><b>Original Investment Amount</b></td><td>${result.amount} PKR</td></tr>
             <tr><td><b>Request ID</b></td><td>${result.request_id}</td></tr>
             <tr><td><b>Request Date/Time</b></td><td>${new Date().toLocaleString("en-PK")}</td></tr>
@@ -102,7 +103,7 @@ export async function POST() {
         `,
       });
     } catch (err) {
-      console.warn("Failed to send return-investment email:", err);
+      logServerWarn("returns/request", err, "failed to send return-investment email");
     }
   }
 

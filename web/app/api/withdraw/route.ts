@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import nodemailer from "nodemailer";
+import { internalError, escapeHtml, logServerWarn } from "@/lib/api-errors";
 
 // Friendly member-facing messages for RPC rejection reasons. The raw reason
 // code is preserved separately (response `reason` field + server log) for
@@ -52,23 +53,23 @@ async function sendWithdrawalEmail(opts: {
     await transporter.sendMail({
       from: SMTP_USER,
       to: ADMIN_EMAIL,
-      subject: `New Withdrawal Request — ${opts.fullName}`,
+      subject: `New Withdrawal Request — ${escapeHtml(opts.fullName)}`,
       html: `
         <h2>New Monthly Profit Withdrawal Request</h2>
         <table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse">
-          <tr><td><b>Full Name</b></td><td>${opts.fullName}</td></tr>
-          <tr><td><b>Address</b></td><td>${opts.address}</td></tr>
-          <tr><td><b>Mobile Number</b></td><td>${opts.mobileNumber}</td></tr>
-          <tr><td><b>Account Number</b></td><td>${opts.accountNumber}</td></tr>
-          <tr><td><b>Payment Method</b></td><td>${opts.paymentMethod}</td></tr>
-          <tr><td><b>Cycle #</b></td><td>${opts.cycleNumber ?? "-"}</td></tr>
-          <tr><td><b>Active Investment</b></td><td>${opts.principal} PKR</td></tr>
+          <tr><td><b>Full Name</b></td><td>${escapeHtml(opts.fullName)}</td></tr>
+          <tr><td><b>Address</b></td><td>${escapeHtml(opts.address)}</td></tr>
+          <tr><td><b>Mobile Number</b></td><td>${escapeHtml(opts.mobileNumber)}</td></tr>
+          <tr><td><b>Account Number</b></td><td>${escapeHtml(opts.accountNumber)}</td></tr>
+          <tr><td><b>Payment Method</b></td><td>${escapeHtml(opts.paymentMethod)}</td></tr>
+          <tr><td><b>Cycle #</b></td><td>${escapeHtml(opts.cycleNumber ?? "-")}</td></tr>
+          <tr><td><b>Active Investment</b></td><td>${escapeHtml(opts.principal)} PKR</td></tr>
           <tr><td><b>Note</b></td><td>Final profit amount will be calculated server-side when the Super Admin selects the monthly rate (7–10%).</td></tr>
         </table>
       `,
     });
   } catch (err) {
-    console.warn("Failed to send withdrawal email:", err);
+    logServerWarn("withdraw", err, "failed to send withdrawal email");
   }
 }
 
@@ -97,7 +98,7 @@ export async function POST() {
 
   if (profileError || !profile) {
     return NextResponse.json(
-      { error: profileError?.message ?? "Profile not found" },
+      { error: "Profile not found" },
       { status: 404 }
     );
   }
@@ -112,7 +113,7 @@ export async function POST() {
   );
 
   if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    return internalError("withdraw", rpcError);
   }
 
   const result = rpcResult as {

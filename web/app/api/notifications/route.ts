@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
   const { user, error } = await requireUser();
@@ -17,7 +18,7 @@ export async function GET() {
     .limit(50);
 
   if (notificationsError) {
-    return NextResponse.json({ error: notificationsError.message }, { status: 500 });
+    return internalError("notifications", notificationsError);
   }
 
   return NextResponse.json({ notifications: notifications ?? [] });
@@ -44,7 +45,7 @@ export async function POST(request: Request) {
       .eq("user_id", user.id)
       .eq("is_read", false);
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("notifications", updateError);
     }
     return NextResponse.json({ success: true });
   }
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
     .or(`user_id.eq.${user.id},user_id.is.null`);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return internalError("notifications", updateError);
   }
 
   return NextResponse.json({ success: true });

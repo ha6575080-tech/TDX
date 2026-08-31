@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
@@ -26,6 +27,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  // The evidence file must live inside this member's own storage folder and
+  // must be EXACTLY "<userId>/<filename>" — one segment only. This blocks a
+  // forged path that could point admin signed-URL views at another member's
+  // private object, path traversal ("../", nested segments), backslash
+  // separators, and empty/odd segment names. (Uploads are independently
+  // owner-scoped by storage RLS.)
+  if (typeof path !== "string" || !path.startsWith(`${userId}/`)) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const rel = path.slice(userId.length + 1);
+  if (!rel || rel === "." || rel === ".." || rel.includes("/") || rel.includes("\\")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const supabase = await createServiceRoleClient();
 
   // Verify the task belongs to this user.
@@ -38,7 +53,7 @@ export async function POST(request: Request) {
 
   if (taskError || !task) {
     return NextResponse.json(
-      { error: taskError?.message ?? "Task not found" },
+      { error: "Task not found" },
       { status: 404 }
     );
   }
@@ -59,7 +74,7 @@ export async function POST(request: Request) {
     .eq("user_id", userId);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 });
+    return internalError("tasks/complete", updateError);
   }
 
   return NextResponse.json({ success: true, screenshot_url: path });

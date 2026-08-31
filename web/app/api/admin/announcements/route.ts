@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -15,7 +16,7 @@ export async function GET() {
     .limit(100);
 
   if (announcementsError) {
-    return NextResponse.json({ error: announcementsError.message }, { status: 500 });
+    return internalError("admin/announcements", announcementsError);
   }
 
   return NextResponse.json({ announcements: announcements ?? [] });
@@ -50,7 +51,7 @@ export async function POST(request: Request) {
       .delete()
       .eq("id", body.id);
     if (deleteError) {
-      return NextResponse.json({ error: deleteError.message }, { status: 500 });
+      return internalError("admin/announcements", deleteError);
     }
     return NextResponse.json({ success: true });
   }
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
   });
 
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return internalError("admin/announcements", insertError);
   }
 
   return NextResponse.json({ success: true });

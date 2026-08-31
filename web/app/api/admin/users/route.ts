@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET(request: Request) {
   const { error } = await requireAdmin();
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
     .limit(limit);
 
   if (profilesError) {
-    return NextResponse.json({ error: profilesError.message }, { status: 500 });
+    return internalError("admin/users", profilesError);
   }
 
   // 2. Fetch approved deposit sums per user.
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
 
     if (fetchError || !profile) {
       return NextResponse.json(
-        { error: fetchError?.message ?? "User not found" },
+        { error: "User not found" },
         { status: 404 }
       );
     }
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
       .eq("id", userId);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/users", updateError);
     }
 
     return NextResponse.json({
@@ -121,7 +122,7 @@ export async function POST(request: Request) {
     });
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      return internalError("admin/users", error);
     }
 
     return NextResponse.json({ success: true, temporaryPassword: temp });

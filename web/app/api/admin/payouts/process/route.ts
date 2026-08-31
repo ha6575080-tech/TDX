@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -70,7 +71,7 @@ export async function POST(req: Request) {
     status: "paid",
   });
 
-  if (payoutErr) return NextResponse.json({ error: payoutErr.message }, { status: 500 });
+  if (payoutErr) return internalError("admin/payouts/process", payoutErr);
 
   // 3. Update deposit: advance next_payout_date by 30 days, update percentage
   const nextDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);

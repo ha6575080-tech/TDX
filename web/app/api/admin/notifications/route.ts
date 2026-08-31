@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { sendPushToSubscriptions } from "@/lib/push";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -16,7 +17,7 @@ export async function GET() {
     .limit(200);
 
   if (notificationsError) {
-    return NextResponse.json({ error: notificationsError.message }, { status: 500 });
+    return internalError("admin/notifications", notificationsError);
   }
 
   // Group by batch: same created_at within 1 second = same batch.
@@ -113,7 +114,7 @@ export async function POST(request: Request) {
 
     const { error: insertError } = await supabase.from("notifications").insert(rows);
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 });
+      return internalError("admin/notifications", insertError);
     }
 
     // Trigger web push to all users.
@@ -144,7 +145,7 @@ export async function POST(request: Request) {
     created_at: now,
   });
   if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 });
+    return internalError("admin/notifications", insertError);
   }
 
   // Trigger web push to that user.

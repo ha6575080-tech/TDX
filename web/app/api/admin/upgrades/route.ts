@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -17,7 +18,7 @@ export async function GET() {
     .limit(200);
 
   if (upgradesError) {
-    return NextResponse.json({ error: upgradesError.message }, { status: 500 });
+    return internalError("admin/upgrades", upgradesError);
   }
 
   const parsed = (upgrades ?? []).map((u: any) => ({
@@ -70,7 +71,7 @@ export async function POST(request: Request) {
 
   if (fetchError || !up) {
     return NextResponse.json(
-      { error: fetchError?.message ?? "Upgrade not found" },
+      { error: "Upgrade not found" },
       { status: 404 }
     );
   }
@@ -98,7 +99,7 @@ export async function POST(request: Request) {
       .select("id");
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
+      return internalError("admin/upgrades", updateError);
     }
     if (!updatedRows || updatedRows.length === 0) {
       return NextResponse.json(
@@ -127,7 +128,7 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return NextResponse.json({ error: msgError.message }, { status: 500 });
+      return internalError("admin/upgrades", msgError);
     }
 
     await supabase.from("financial_audit_log").insert({

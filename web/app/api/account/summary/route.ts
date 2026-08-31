@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { computeSummaryTotals } from "@/lib/account-summary";
+import { internalError } from "@/lib/api-errors";
 
 /**
  * GET /api/account/summary
@@ -60,7 +61,7 @@ export async function GET() {
     ]);
 
   if (profileRes.error) {
-    return NextResponse.json({ error: profileRes.error.message }, { status: 500 });
+    return internalError("account/summary", profileRes.error);
   }
 
   const profile = profileRes.data;

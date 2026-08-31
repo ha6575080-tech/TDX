@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { internalError } from "@/lib/api-errors";
 
 /**
  * POST /api/referral
@@ -39,7 +40,7 @@ export async function POST(request: Request) {
   });
 
   if (rpcError) {
-    return NextResponse.json({ error: rpcError.message }, { status: 500 });
+    return internalError("referral", rpcError);
   }
 
   const result = data as { ok?: boolean; reason?: string } | null;
