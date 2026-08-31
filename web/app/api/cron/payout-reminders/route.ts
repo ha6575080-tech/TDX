@@ -27,13 +27,15 @@ export async function GET(req: Request) {
   const now = new Date();
   const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  // Find deposits with payouts due in next 24 hours
+  // Find deposits with payouts due in next 24 hours.
+  // NOTE: no profiles(...) embed — deposits has TWO foreign keys to profiles
+  // (user_id and created_by_agent), so PostgREST cannot infer the relationship.
+  // Profiles are fetched explicitly below using each trusted deposit.user_id.
   const { data: dueDeposits, error } = await supabaseAdmin
     .from("deposits")
-    .select(`
-      id, amount, next_payout_date, monthly_profit_pct,
-      profiles!inner (full_name, mobile_number, id)
-    `)
+    .select(
+      "id, user_id, amount, next_payout_date, monthly_profit_pct"
+    )
     .eq("status", "approved")
     .not("next_payout_date", "is", null)
     .lte("next_payout_date", tomorrow.toISOString())
@@ -44,9 +46,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: true, due: 0 });
   }
 
+  // Batch-fetch profiles by trusted deposit.user_id (1 query, no N+1)
+  const userIds = [...new Set(dueDeposits.map((d: any) => d.user_id))];
+  const profileMap = new Map<string, { full_name: string | null; mobile_number: string | null }>();
+  if (userIds.length > 0) {
+    const { data: profiles, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("id, full_name, mobile_number")
+      .in("id", userIds);
+    if (profileError) return internalError("cron/payout-reminders", profileError);
+    for (const p of profiles ?? []) {
+      profileMap.set(p.id, { full_name: p.full_name, mobile_number: p.mobile_number });
+    }
+  }
+
   // Build email content
   const rows = dueDeposits.map((d: Record<string, unknown>) => {
-    const profile = d.profiles as Record<string, unknown>;
+    const profile = profileMap.get(d.user_id as string) ?? { full_name: null, mobile_number: null };
     const pct = (d.monthly_profit_pct as number) || 8;
     const payout = ((d.amount as number) * (pct as number)) / 100;
     const dueDate = new Date(d.next_payout_date as string).toLocaleDateString();

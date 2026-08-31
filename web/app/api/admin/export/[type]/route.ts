@@ -49,23 +49,41 @@ export async function GET(
     }));
     filename = "users.csv";
   } else if (type === "deposits") {
+    // NOTE: no profiles(...) embed — deposits has TWO foreign keys to profiles
+    // (user_id and created_by_agent), so PostgREST cannot infer the relationship.
+    // Profiles are fetched explicitly below using each trusted deposit.user_id.
     const { data } = await supabase
       .from("deposits")
       .select(
-        "amount, status, ai_verdict, ai_confidence, uploaded_at, profiles(full_name, username, mobile_number), packages(package_name)"
+        "user_id, amount, status, ai_verdict, ai_confidence, uploaded_at, packages(package_name)"
       )
       .order("uploaded_at", { ascending: false });
-    rows = (data ?? []).map((d: any) => ({
-      "Full Name": d.profiles?.full_name ?? "",
-      Username: d.profiles?.username ?? "",
-      Mobile: d.profiles?.mobile_number ?? "",
+
+    const depRows = data ?? [];
+    const userIds = [...new Set(depRows.map((d: any) => d.user_id))];
+    const profileMap = new Map<string, Record<string, unknown>>();
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("id, full_name, username, mobile_number")
+        .in("id", userIds);
+      for (const p of profiles ?? []) profileMap.set(p.id, p);
+    }
+
+    rows = depRows.map((d: any) => {
+      const u = profileMap.get(d.user_id) ?? {};
+      return {
+      "Full Name": u.full_name ?? "",
+      Username: u.username ?? "",
+      Mobile: u.mobile_number ?? "",
       Amount: d.amount ?? 0,
       Package: d.packages?.package_name ?? "",
       Status: d.status ?? "",
       "AI Verdict": d.ai_verdict ?? "",
       "AI Confidence": d.ai_confidence ?? 0,
       Date: d.uploaded_at ?? "",
-    }));
+      }
+    });
     filename = "deposits.csv";
   } else if (type === "withdrawals") {
     const { data } = await supabase
