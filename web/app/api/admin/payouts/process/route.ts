@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -87,13 +87,19 @@ export async function POST(req: Request) {
   const msgEn = `Your payout of Rs ${payoutAmount.toLocaleString()} (${percentage}%) has been processed. Please wait a few hours for it to appear in your account.`;
   const msgUr = `آپ کی Rs ${payoutAmount.toLocaleString()} (${percentage}%) کی ادائیگی کارروائی ہو گئی ہے۔ اکاؤنٹ میں ظاہر ہونے میں کچھ گھنٹے لگیں گے۔`;
 
-  await supabaseAdmin.from("notifications").insert({
-    user_id: deposit.user_id,
-    title: "Payout Processed",
-    title_ur: "ادائیگی کارروائی ہو گئی",
-    message: msgEn,
-    message_ur: msgUr,
-  });
+  const { error: notifInsertError } = await supabaseAdmin
+    .from("notifications")
+    .insert({
+      user_id: deposit.user_id,
+      title: "Payout Processed",
+      title_ur: "ادائیگی کارروائی ہو گئی",
+      message: msgEn,
+      message_ur: msgUr,
+    });
+  if (notifInsertError) {
+    // Payout is already processed and authoritative — log only, never fail.
+    logServerWarn("admin/payouts/process", notifInsertError, "notification insert failed");
+  }
 
   // 5. Also insert a chat message so user sees it in their thread
   await supabaseAdmin.from("messages").insert({

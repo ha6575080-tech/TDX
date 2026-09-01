@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { sendPushToSubscriptions } from "@/lib/push";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 /**
  * Create an in-app notification for a specific member and attempt best-effort
@@ -20,7 +20,7 @@ async function notifyMember(
   message_ur: string
 ) {
   // In-app notification (persisted, visible in NotificationBell/inbox).
-  await supabase.from("notifications").insert({
+  const { error: notifError } = await supabase.from("notifications").insert({
     user_id: userId,
     title,
     message,
@@ -28,6 +28,15 @@ async function notifyMember(
     message_ur,
     is_read: false,
   });
+  if (notifError) {
+    // Observability only — the financial transition has already been applied
+    // and must never be rolled back or blocked by a notification failure.
+    logServerWarn(
+      "admin/deposits",
+      notifError,
+      "in-app notification insert failed (financial state already applied)"
+    );
+  }
 
   // Best-effort push — never blocks or fails the approval flow.
   try {
@@ -36,13 +45,21 @@ async function notifyMember(
       .select("endpoint, p256dh, auth")
       .eq("user_id", userId);
     if (subs && subs.length > 0) {
-      await sendPushToSubscriptions(
+      const pushResult = await sendPushToSubscriptions(
         subs as Array<{ endpoint: string; p256dh: string; auth: string }>,
         JSON.stringify({ title, message })
       );
+      if (pushResult.failed > 0) {
+        logServerWarn(
+          "admin/deposits",
+          new Error("push_delivery_partial_failure"),
+          `push: sent=${pushResult.sent} failed=${pushResult.failed}`
+        );
+      }
     }
-  } catch {
+  } catch (pushErr) {
     // Push is best-effort; the in-app notification is the authoritative copy.
+    logServerWarn("admin/deposits", pushErr, "push delivery failed (non-blocking)");
   }
 }
 

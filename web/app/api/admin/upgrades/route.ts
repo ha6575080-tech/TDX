@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -111,7 +111,7 @@ export async function POST(request: Request) {
     const msgEn = `Your investment upgrade request (PKR ${up.requested_amount}) has been rejected. Your investment remains PKR ${up.previous_amount}.`;
     const msgUr = `آپ کی سرمایہ کاری میں اضافے کی درخواست (${up.requested_amount} روپے) مسترد کر دی گئی ہے۔ آپ کی سرمایہ کاری ${up.previous_amount} روپے ہی رہے گی۔`;
 
-    await supabase.from("notifications").insert({
+    const { error: notifInsertError } = await supabase.from("notifications").insert({
       user_id: up.user_id,
       title: "Investment Upgrade Rejected",
       title_ur: "درخواست مسترد",
@@ -119,6 +119,10 @@ export async function POST(request: Request) {
       message_ur: msgUr,
       is_read: false,
     });
+    if (notifInsertError) {
+      // Rejection is already applied and authoritative — log only, never fail.
+      logServerWarn("admin/upgrades", notifInsertError, "notification insert failed");
+    }
 
     const { error: msgError } = await supabase.from("messages").insert({
       user_id: up.user_id,
@@ -128,7 +132,8 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return internalError("admin/upgrades", msgError);
+      // Rejection is already applied and authoritative — log only.
+      logServerWarn("admin/upgrades", msgError, "rejection message insert failed");
     }
 
     await supabase.from("financial_audit_log").insert({

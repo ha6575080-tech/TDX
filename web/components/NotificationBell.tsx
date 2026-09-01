@@ -19,13 +19,29 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unread, setUnread] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [actionError, setActionError] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch("/api/notifications");
-    if (!res.ok) return;
-    const data = await res.json();
-    setNotifications(data.notifications ?? []);
-    setUnread((data.notifications ?? []).filter((n: Notification) => !n.is_read).length);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/notifications");
+      if (!res.ok) {
+        // Surface the failure explicitly — an API error must never render
+        // as the "no notifications" empty state.
+        setLoadError(true);
+        return;
+      }
+      const data = await res.json();
+      setLoadError(false);
+      setNotifications(data.notifications ?? []);
+      setUnread((data.notifications ?? []).filter((n: Notification) => !n.is_read).length);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -33,25 +49,45 @@ export default function NotificationBell() {
   }, [load]);
 
   const markRead = useCallback(async (id: string) => {
-    await fetch("/api/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notification_id: id }),
-    });
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
-    setUnread((u) => Math.max(0, u - 1));
+    setActionError(false);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notification_id: id }),
+      });
+      if (!res.ok) {
+        // A failed mark-read must not silently look successful — keep the
+        // notification unread and show the error state.
+        setActionError(true);
+        return;
+      }
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnread((u) => Math.max(0, u - 1));
+    } catch {
+      setActionError(true);
+    }
   }, []);
 
   const markAllRead = useCallback(async () => {
-    await fetch("/api/notifications", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mark_all: true }),
-    });
-    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    setUnread(0);
+    setActionError(false);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mark_all: true }),
+      });
+      if (!res.ok) {
+        setActionError(true);
+        return;
+      }
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnread(0);
+    } catch {
+      setActionError(true);
+    }
   }, []);
 
   // Close on Escape for keyboard users.
@@ -99,9 +135,29 @@ export default function NotificationBell() {
             )}
           </div>
 
-          {notifications.length === 0 ? (
-            <p className="text-sm text-on-surface-variant">{t("noNotifications")}</p>
+          {loadError ? (
+            <div className="text-center py-2">
+              <p className="text-sm text-error mb-2">{t("notificationsError")}</p>
+              <button
+                type="button"
+                onClick={load}
+                className="text-xs text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
+              >
+                {t("retry")}
+              </button>
+            </div>
+          ) : loading ? (
+            <p className="text-sm text-on-surface-variant text-center py-2">
+              {t("loadingNotifications")}
+            </p>
           ) : (
+            <>
+              {actionError && (
+                <p className="text-xs text-error mb-2">{t("markReadError")}</p>
+              )}
+              {notifications.length === 0 ? (
+                <p className="text-sm text-on-surface-variant">{t("noNotifications")}</p>
+              ) : (
             <div className="space-y-2">
               {notifications.map((n) => (
                 <button
@@ -127,6 +183,8 @@ export default function NotificationBell() {
                 </button>
               ))}
             </div>
+              )}
+            </>
           )}
         </div>
       )}

@@ -84,6 +84,40 @@ export async function POST(request: Request) {
   const supabase = await createServiceRoleClient();
   const now = new Date().toISOString();
 
+  // Duplicate-broadcast guard: reject an identical notification (same title,
+  // message, and target) re-submitted within 60 seconds (double-click or
+  // network retry). "all" is detected via the global marker row (user_id IS
+  // NULL); any non-"all" target is treated as specific and requires user_id
+  // (same rule the insert path below enforces).
+  if (target !== "all" && !user_id) {
+    return NextResponse.json(
+      { error: "user_id is required when target is specific" },
+      { status: 400 }
+    );
+  }
+  const sixtySecondsAgo = new Date(Date.now() - 60_000).toISOString();
+  const duplicateQuery = supabase
+    .from("notifications")
+    .select("id")
+    .eq("title", title)
+    .eq("message", message)
+    .gte("created_at", sixtySecondsAgo)
+    .limit(1);
+  const { data: recentDuplicate, error: duplicateError } =
+    target === "all"
+      ? await duplicateQuery.is("user_id", null)
+      : await duplicateQuery.eq("user_id", user_id as string);
+  if (duplicateError) return internalError("admin/notifications", duplicateError);
+  if (recentDuplicate && recentDuplicate.length > 0) {
+    return NextResponse.json(
+      {
+        error:
+          "This exact notification was just sent. Please wait a minute before resending.",
+      },
+      { status: 409 }
+    );
+  }
+
   if (target === "all") {
     // Insert a row for EVERY active user PLUS one global row (user_id=null).
     const { data: profiles } = await supabase

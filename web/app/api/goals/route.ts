@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { extractErrorInfo } from "@/lib/errors";
 import { computeSummaryTotals } from "@/lib/account-summary";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 /**
  * Personal goals — planning/engagement feature. NOT financial advice.
@@ -132,13 +132,26 @@ export async function GET() {
         is_read: false,
       };
     });
-    // Best-effort — never block the goals response on notification inserts.
-    await supabase.from("notifications").insert(notifRows);
-    await Promise.all(
+    // Best-effort — never block the goals response on notification inserts,
+    // but log failures so silent notification loss is visible to operators.
+    const { error: milestoneNotifError } = await supabase
+      .from("notifications")
+      .insert(notifRows);
+    if (milestoneNotifError) {
+      logServerWarn("goals", milestoneNotifError, "milestone notification insert failed");
+    }
+    const milestoneUpdates = await Promise.all(
       dueNotifs.map((n) =>
         supabase.from("goals").update({ milestones_reached: n.to }).eq("id", n.id).eq("user_id", userId)
       )
     );
+    for (const u of milestoneUpdates) {
+      if (u.error) {
+        // If the counter update fails, the milestone may re-notify on the
+        // next load — surface it instead of failing silently.
+        logServerWarn("goals", u.error, "milestones_reached counter update failed");
+      }
+    }
   }
 
   return NextResponse.json({ goals, current_amount: currentAmount });

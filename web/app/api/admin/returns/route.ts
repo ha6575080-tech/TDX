@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
 
 const RETURN_WINDOW_DAYS = 60;
 
@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     }
 
     // Member in-app notification.
-    await supabase.from("notifications").insert({
+    const { error: notifInsertError } = await supabase.from("notifications").insert({
       user_id: userId,
       title: "Return Investment Approved",
       title_ur: "سرمایہ کاری واپسی منظور",
@@ -169,6 +169,10 @@ export async function POST(request: Request) {
       message_ur: APPROVAL_MSG_UR,
       is_read: false,
     });
+    if (notifInsertError) {
+      // Approval is already applied and authoritative — log only, never fail.
+      logServerWarn("admin/returns", notifInsertError, "approval notification insert failed");
+    }
 
     // Member bilingual inbox message (exact spec wording).
     const { error: msgError } = await supabase.from("messages").insert({
@@ -179,7 +183,9 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return internalError("admin/returns", msgError);
+      // Approval is already applied and authoritative — a failed secondary
+      // message must not mislead the admin into retrying a done operation.
+      logServerWarn("admin/returns", msgError, "approval message insert failed");
     }
 
     // Audit trail.
@@ -232,7 +238,8 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return internalError("admin/returns", msgError);
+      // Rejection is already applied and authoritative — log only.
+      logServerWarn("admin/returns", msgError, "rejection message insert failed");
     }
 
     await supabase.from("financial_audit_log").insert({
@@ -291,7 +298,7 @@ export async function POST(request: Request) {
     const completionMsgEn = `Your return investment has been completed. PKR ${amount} has been sent to your account.`;
     const completionMsgUr = `آپ کی سرمایہ کاری واپسی مکمل ہو گئی ہے۔ ${amount} روپے آپ کے اکاؤنٹ میں بھیج دیے گئے ہیں۔`;
 
-    await supabase.from("notifications").insert({
+    const { error: notifInsertError } = await supabase.from("notifications").insert({
       user_id: userId,
       title: "Investment Returned",
       title_ur: "سرمایہ کاری واپس",
@@ -299,6 +306,10 @@ export async function POST(request: Request) {
       message_ur: completionMsgUr,
       is_read: false,
     });
+    if (notifInsertError) {
+      // Completion is already applied and authoritative — log only, never fail.
+      logServerWarn("admin/returns", notifInsertError, "completion notification insert failed");
+    }
 
     const { error: msgError } = await supabase.from("messages").insert({
       user_id: userId,
@@ -308,7 +319,8 @@ export async function POST(request: Request) {
       is_read: false,
     });
     if (msgError) {
-      return internalError("admin/returns", msgError);
+      // Completion is already applied and authoritative — log only.
+      logServerWarn("admin/returns", msgError, "completion message insert failed");
     }
 
     await supabase.from("financial_audit_log").insert({
