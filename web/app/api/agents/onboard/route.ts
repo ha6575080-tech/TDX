@@ -3,18 +3,19 @@ import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { internalError, logServerError } from "@/lib/api-errors";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('supabaseUrl is required.');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
 export async function POST(req: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
 
   // Verify this user is an agent
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
     .select("role")
     .eq("id", user!.id)
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
   const tempEmail = `member_${mobile_number}@tdx-auto.com`;
   const tempPassword = Math.random().toString(36).slice(-10) + "A1!";
 
-  const { data: authData, error: signUpErr } = await supabaseAdmin.auth.admin.createUser({
+  const { data: authData, error: signUpErr } = await getSupabaseAdmin().auth.admin.createUser({
     email: tempEmail,
     password: tempPassword,
     email_confirm: true,
@@ -63,7 +64,7 @@ export async function POST(req: Request) {
   // Create/update profile. The handle_new_user() trigger may already have
   // inserted a baseline row when the auth user was created, so upsert.
   const username = `user_${mobile_number.slice(-6)}`;
-  const { error: profileErr } = await supabaseAdmin.from("profiles").upsert({
+  const { error: profileErr } = await getSupabaseAdmin().from("profiles").upsert({
     id: authData.user!.id,
     full_name,
     mobile_number,
@@ -86,7 +87,7 @@ export async function POST(req: Request) {
   }
 
   // Create deposit record
-  const { error: depositErr } = await supabaseAdmin.from("deposits").insert({
+  const { error: depositErr } = await getSupabaseAdmin().from("deposits").insert({
     user_id: authData.user!.id,
     amount: parseFloat(invested_amount),
     receipt_image_url: "pending-upload",
@@ -112,7 +113,7 @@ export async function GET() {
 
   // Fetch members onboarded by this agent.
   // profiles has no `status` text column — derive it from the flags.
-  const { data: members, error: qErr } = await supabaseAdmin
+  const { data: members, error: qErr } = await getSupabaseAdmin()
     .from("profiles")
     .select("id, full_name, mobile_number, whatsapp_number, city, is_active, is_suspended, created_at")
     .eq("agent_id", user!.id)

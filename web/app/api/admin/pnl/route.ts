@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('supabaseUrl is required.');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
 export async function GET(req: Request) {
   const { error } = await requireAdmin();
@@ -41,29 +42,29 @@ export async function GET(req: Request) {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
-  const { data: deposits } = await supabaseAdmin
+  const { data: deposits } = await getSupabaseAdmin()
     .from("deposits")
     .select("amount, created_at")
     .eq("status", "approved")
     .gte("created_at", startDate.toISOString());
 
-  const { data: payouts } = await supabaseAdmin
+  const { data: payouts } = await getSupabaseAdmin()
     .from("payouts")
     .select("amount, created_at")
     .eq("status", "paid")
     .gte("created_at", startDate.toISOString());
 
-  const { data: withdrawals } = await supabaseAdmin
+  const { data: withdrawals } = await getSupabaseAdmin()
     .from("withdrawals")
     .select("amount, created_at")
     .in("status", ["approved", "completed"])
     .gte("created_at", startDate.toISOString());
 
-  const { count: totalUsers } = await supabaseAdmin
+  const { count: totalUsers } = await getSupabaseAdmin()
     .from("profiles")
     .select("id", { count: "exact", head: true });
 
-  const { count: activeUsers } = await supabaseAdmin
+  const { count: activeUsers } = await getSupabaseAdmin()
     .from("profiles")
     .select("id", { count: "exact", head: true })
     .eq("status", "active");

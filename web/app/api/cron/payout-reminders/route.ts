@@ -3,19 +3,22 @@ import { createClient } from "@supabase/supabase-js";
 import nodemailer from "nodemailer";
 import { internalError, escapeHtml, logServerError, logServerWarn } from "@/lib/api-errors";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('supabaseUrl is required.');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+function getTransporter() {
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+}
 
 export async function GET(req: Request) {
   // Verify cron secret
@@ -31,7 +34,7 @@ export async function GET(req: Request) {
   // NOTE: no profiles(...) embed — deposits has TWO foreign keys to profiles
   // (user_id and created_by_agent), so PostgREST cannot infer the relationship.
   // Profiles are fetched explicitly below using each trusted deposit.user_id.
-  const { data: dueDeposits, error } = await supabaseAdmin
+  const { data: dueDeposits, error } = await getSupabaseAdmin()
     .from("deposits")
     .select(
       "id, user_id, amount, next_payout_date, monthly_profit_pct"
@@ -55,7 +58,7 @@ export async function GET(req: Request) {
   const dayStartUtc = new Date(
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
   ).toISOString();
-  const { data: existingReminder, error: reminderCheckError } = await supabaseAdmin
+  const { data: existingReminder, error: reminderCheckError } = await getSupabaseAdmin()
     .from("notifications")
     .select("id")
     .eq("title", "Payout Reminder")
@@ -74,7 +77,7 @@ export async function GET(req: Request) {
   const userIds = [...new Set(dueDeposits.map((d: any) => d.user_id))];
   const profileMap = new Map<string, { full_name: string | null; mobile_number: string | null }>();
   if (userIds.length > 0) {
-    const { data: profiles, error: profileError } = await supabaseAdmin
+    const { data: profiles, error: profileError } = await getSupabaseAdmin()
       .from("profiles")
       .select("id, full_name, mobile_number")
       .in("id", userIds);
@@ -102,7 +105,7 @@ export async function GET(req: Request) {
 
   // Send email to admin
   try {
-    await transporter.sendMail({
+    await getTransporter().sendMail({
       from: `"TDX System" <${process.env.SMTP_USER}>`,
       to: "ha6575080@gmail.com",
       subject: `⏰ TDX Payout Reminder — ${dueDeposits.length} payout(s) due`,
@@ -113,7 +116,7 @@ export async function GET(req: Request) {
   }
 
   // Also insert in-app notification for admin
-  const { data: adminProfile } = await supabaseAdmin
+  const { data: adminProfile } = await getSupabaseAdmin()
     .from("profiles")
     .select("id")
     .eq("role", "admin")
@@ -121,7 +124,7 @@ export async function GET(req: Request) {
     .single();
 
   if (adminProfile) {
-    const { error: reminderInsertError } = await supabaseAdmin
+    const { error: reminderInsertError } = await getSupabaseAdmin()
       .from("notifications")
       .insert({
         user_id: adminProfile.id,

@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
-import { Outfit, Noto_Nastaliq_Urdu } from "next/font/google";
 import "./globals.css";
 import { I18nProvider } from "@/lib/i18n";
 import ChatBubble from "@/components/ChatBubble";
 
-const outfit = Outfit({
-  variable: "--font-outfit",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const notoNastaliqUrdu = Noto_Nastaliq_Urdu({
-  variable: "--font-urdu",
-  subsets: ["arabic"],
-  display: "swap",
-});
+// Offline-safe font fallback — avoids Google Fonts network fetch during build
+// In production with network, next/font/google can be re-enabled by restoring the original file (layout.tsx.offline.bak)
+const outfit = { variable: "--font-outfit" } as const;
+const notoNastaliqUrdu = { variable: "--font-urdu" } as const;
 
 export const metadata: Metadata = {
   title: "TDX — Investment Platform",

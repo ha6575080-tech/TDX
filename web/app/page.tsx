@@ -67,7 +67,7 @@ export default function Home() {
           </Link>
 
           {/* Trust Banner */}
-          <GlassPanel className="w-full max-w-5xl rounded-2xl p-6 mb-20 flex flex-col md:flex-row justify-between items-center gap-6">
+          <GlassPanel className="w-full max-w-5xl rounded-2xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
             <div className="flex items-center gap-2 text-on-surface-variant text-label-md uppercase tracking-widest">
               <ShieldCheck className="w-5 h-5 text-primary" />
               {t("securePlatform")}
@@ -82,6 +82,32 @@ export default function Home() {
               <Wallet className="w-8 h-8" />
               <BarChart3 className="w-8 h-8" />
               <TrendingUp className="w-8 h-8" />
+            </div>
+          </GlassPanel>
+
+          {/* Deposit Methods — publicly visible */}
+          <GlassPanel className="w-full max-w-5xl rounded-2xl p-6 mb-20 text-left">
+            <h2 className="text-title-lg font-bold text-primary mb-2">Official Deposit Methods</h2>
+            <p className="text-sm text-on-surface-variant mb-6">TDX supports two official deposit methods for every registered member. Non-registered visitors can view this information but must register/login to submit a deposit.</p>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                <h3 className="text-sm font-bold text-on-surface">Option 1 — Online Transfer</h3>
+                <div className="mt-3 rounded-lg bg-[#0B2E1F] p-4 text-sm text-white">
+                  <p className="font-semibold text-[#A8E636]">Send payment to:</p>
+                  <p className="mt-1 font-medium">Jazz Cash</p>
+                  <p>Account Name: Shakeela</p>
+                  <p>Jazz Cash Number: 0308-3958294</p>
+                </div>
+                <p className="mt-3 text-xs text-on-surface-variant">Transfer your deposit amount to the above Jazz Cash account, then upload your payment receipt in TDX for verification. Requires login.</p>
+              </div>
+              <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5">
+                <h3 className="text-sm font-bold text-on-surface">Option 2 — Cash to Agent</h3>
+                <div className="mt-3 rounded-lg border border-outline-variant/30 bg-surface-container-low p-4">
+                  <p className="text-sm font-semibold">Agent Name: Shakeela</p>
+                  <p className="text-xs text-on-surface-variant mt-1">Authorized cash collection agent. Hand cash directly to the agent and record the payment date.</p>
+                </div>
+                <p className="mt-3 text-xs text-on-surface-variant">Cash to Agent is usable only by authenticated registered members because it creates a member-specific financial record. Please <Link href="/register" className="font-semibold text-primary underline">register</Link> or <Link href="/login" className="font-semibold text-primary underline">login</Link> to submit.</p>
+              </div>
             </div>
           </GlassPanel>
 
