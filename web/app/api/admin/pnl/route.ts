@@ -42,23 +42,32 @@ export async function GET(req: Request) {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
   }
 
+  // Deposits: approved deposits within period (use approved_at when present, else uploaded_at)
   const { data: deposits } = await getSupabaseAdmin()
     .from("deposits")
-    .select("amount, created_at")
+    .select("amount, approved_at, uploaded_at")
     .eq("status", "approved")
-    .gte("created_at", startDate.toISOString());
+    .gte("approved_at", startDate.toISOString());
 
   const { data: payouts } = await getSupabaseAdmin()
     .from("payouts")
-    .select("amount, created_at")
+    .select("amount, created_at, user_id, month, year")
     .eq("status", "paid")
     .gte("created_at", startDate.toISOString());
 
+  // Profits ledger: per-user monthly profit (paid) — separate from per-deposit payouts.
+  // Used to detect omission of legacy profit payouts and to avoid double-counting.
+  const { data: profitsPaid } = await getSupabaseAdmin()
+    .from("profits")
+    .select("amount, payout_date, user_id, month, year")
+    .eq("status", "paid")
+    .gte("payout_date", startDate.toISOString());
+
   const { data: withdrawals } = await getSupabaseAdmin()
     .from("withdrawals")
-    .select("amount, created_at")
+    .select("amount, requested_at")
     .in("status", ["approved", "completed"])
-    .gte("created_at", startDate.toISOString());
+    .gte("requested_at", startDate.toISOString());
 
   const { count: totalUsers } = await getSupabaseAdmin()
     .from("profiles")
@@ -70,15 +79,34 @@ export async function GET(req: Request) {
     .eq("status", "active");
 
   const totalDeposits = (deposits || []).reduce(
-    (s: number, d: Record<string, unknown>) => s + (d.amount as number),
+    (s: number, d: Record<string, unknown>) => s + Number(d.amount ?? 0),
     0
   );
-  const totalPayouts = (payouts || []).reduce(
-    (s: number, p: Record<string, unknown>) => s + (p.amount as number),
+  const totalPayoutsPerDeposit = (payouts || []).reduce(
+    (s: number, p: Record<string, unknown>) => s + Number(p.amount ?? 0),
     0
   );
+  // Dedup: profits for user/month already covered by at least one per-deposit payout for same month should not double-count.
+  const payoutKeys = new Set(
+    (payouts || []).map(
+      (p: Record<string, unknown>) => `${p.user_id}-${p.month}-${p.year}`
+    )
+  );
+  const nonOverlappingProfits = (profitsPaid || []).filter(
+    (pr: Record<string, unknown>) => !payoutKeys.has(`${pr.user_id}-${pr.month}-${pr.year}`)
+  );
+  const totalProfitsPaid = (profitsPaid || []).reduce(
+    (s: number, pr: Record<string, unknown>) => s + Number(pr.amount ?? 0),
+    0
+  );
+  const totalProfitsNonOverlapping = nonOverlappingProfits.reduce(
+    (s: number, pr: Record<string, unknown>) => s + Number(pr.amount ?? 0),
+    0
+  );
+  // Authoritative total payouts for PnL: per-deposit payouts + legacy profits that have no per-deposit counterpart
+  const totalPayouts = totalPayoutsPerDeposit + totalProfitsNonOverlapping;
   const totalWithdrawalsAmt = (withdrawals || []).reduce(
-    (s: number, w: Record<string, unknown>) => s + (w.amount as number),
+    (s: number, w: Record<string, unknown>) => s + Number(w.amount ?? 0),
     0
   );
   const netProfit = totalDeposits - totalPayouts - totalWithdrawalsAmt;
@@ -90,6 +118,9 @@ export async function GET(req: Request) {
     summary: {
       totalDeposits,
       totalPayouts,
+      totalPayoutsPerDeposit,
+      totalProfitsPaid,
+      totalProfitsNonOverlapping,
       totalWithdrawals: totalWithdrawalsAmt,
       netProfit,
       totalUsers: totalUsers || 0,
@@ -98,6 +129,8 @@ export async function GET(req: Request) {
     breakdown: {
       deposits: deposits || [],
       payouts: payouts || [],
+      profitsPaid: profitsPaid || [],
+      profitsNonOverlapping: nonOverlappingProfits,
       withdrawals: withdrawals || [],
     },
   });

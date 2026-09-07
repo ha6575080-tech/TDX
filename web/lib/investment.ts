@@ -45,3 +45,13 @@ export function isAllowedMonthlyRate(v: unknown): v is AllowedMonthlyRate {
     (ALLOWED_MONTHLY_RATES as readonly number[]).includes(v)
   );
 }
+
+/** Server-side deposit amount validation — mirrors DB CHECK deposits_amount_range_check.
+ * Rejects NaN, Infinity, non-numeric, negative, zero, and values outside 5k-2M. */
+export function isValidDepositAmount(v: unknown): boolean {
+  if (typeof v !== "number") return false;
+  if (!Number.isFinite(v)) return false;
+  if (Number.isNaN(v)) return false;
+  if (v < MIN_INVESTMENT_PKR || v > MAX_INVESTMENT_PKR) return false;
+  return true;
+}

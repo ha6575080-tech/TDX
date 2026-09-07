@@ -8,6 +8,7 @@ import {
   MAX_INVESTMENT_PKR,
   PAYMENT_ACCOUNT,
   PAYMENT_METHODS,
+  isValidDepositAmount,
 } from "@/lib/investment";
 import { PAYMENT_AGENTS } from "@/lib/paymentAgents";
 
@@ -32,11 +33,7 @@ export default function DepositForm() {
   const [showCashConfirm, setShowCashConfirm] = useState(false);
 
   const amountNum = Number(amount);
-  const amountValid =
-    !isNaN(amountNum) &&
-    Number.isFinite(amountNum) &&
-    amountNum >= MIN_INVESTMENT_PKR &&
-    amountNum <= MAX_INVESTMENT_PKR;
+  const amountValid = isValidDepositAmount(amountNum);
 
   // Load active cash agents from DB (authoritative), fallback to static
   useEffect(() => {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { internalError, logServerError } from "@/lib/api-errors";
+import { isValidDepositAmount } from "@/lib/investment";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,6 +35,11 @@ export async function POST(req: Request) {
 
   if (!full_name || !mobile_number || !invested_amount) {
     return NextResponse.json({ error: "full_name, mobile_number, and invested_amount are required" }, { status: 400 });
+  }
+
+  const parsedAmount = Number(invested_amount);
+  if (!isValidDepositAmount(parsedAmount)) {
+    return NextResponse.json({ error: "invested_amount must be a finite number between 5000 and 2000000" }, { status: 400 });
   }
 
   // Create a new user account for the member
@@ -89,7 +95,7 @@ export async function POST(req: Request) {
   // Create deposit record
   const { error: depositErr } = await getSupabaseAdmin().from("deposits").insert({
     user_id: authData.user!.id,
-    amount: parseFloat(invested_amount),
+    amount: parsedAmount,
     receipt_image_url: "pending-upload",
     status: "pending",
     created_by_agent: user!.id,

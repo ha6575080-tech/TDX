@@ -3,7 +3,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import nodemailer from "nodemailer";
 import { internalError, escapeHtml, logServerWarn } from "@/lib/api-errors";
-import { PAYMENT_ACCOUNT } from "@/lib/investment";
+import { isValidDepositAmount, PAYMENT_ACCOUNT } from "@/lib/investment";
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY ?? "";
 const SMTP_USER = process.env.SMTP_USER ?? "";
@@ -243,6 +243,12 @@ export async function POST(request: Request) {
 
   if (depositError || !deposit) {
     return NextResponse.json({ error: "Deposit not found" }, { status: 404 });
+  }
+
+  // Server-side amount validation (defense in depth — DB CHECK is final)
+  const rawAmount = Number((deposit as any).amount);
+  if (!isValidDepositAmount(rawAmount)) {
+    return NextResponse.json({ error: "Deposit amount must be between 5000 and 2000000" }, { status: 400 });
   }
 
   const paymentMethod = (deposit as any).payment_method ?? "online_transfer";

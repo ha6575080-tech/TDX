@@ -44,6 +44,24 @@ export async function POST(req: Request) {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
+  // Cross-ledger guard: profits ledger already marks this user/month as paid
+  // (via legacy payout or via withdrawal). A per-deposit payout for the same month
+  // would double-represent the same economic event.
+  const { data: existingProfit } = await getSupabaseAdmin()
+    .from("profits")
+    .select("id")
+    .eq("user_id", deposit.user_id)
+    .eq("month", month)
+    .eq("year", year)
+    .eq("status", "paid")
+    .maybeSingle();
+  if (existingProfit) {
+    return NextResponse.json(
+      { error: "Profit already marked paid for this user/month — per-deposit payout would double-count" },
+      { status: 409 }
+    );
+  }
+
   // Prevent duplicate payout for same deposit in same month (app-level check).
   // The authoritative guard is the DB unique index payouts_unique_deposit_month_year
   // (42703/42P01 fixed by 20260908000001 migration which created payouts + missing columns).
