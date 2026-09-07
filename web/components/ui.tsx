@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import NotificationBell from "@/components/NotificationBell";
+import UserDropdown from "@/components/UserDropdown";
 
 /* ===== GlassPanel ===== */
 export function GlassPanel({
@@ -227,34 +228,49 @@ export function TopNav({ active }: { active?: string }) {
     { href: "/chat", label: t("chat") },
   ];
   return (
-    <nav className="hidden md:flex justify-between items-center px-container-padding h-16 w-full max-w-7xl mx-auto bg-surface/80 backdrop-blur-xl fixed top-0 z-50 border-b border-outline-variant/30 shadow-md shadow-primary/10">
-      <Link href="/" className="text-headline-lg font-bold text-primary tracking-tighter">
-        {t("appName")}
-      </Link>
-      <div className="flex gap-4 text-label-md">
-        {links.map((l) => {
-          const isActive = active === l.href || pathname === l.href;
-          return (
-            <Link
-              key={l.href}
-              href={l.href}
-              className={`px-3 py-2 rounded-lg transition-colors ${
-                isActive
-                  ? "text-secondary font-bold"
-                  : "text-on-surface-variant hover:bg-surface-bright"
-              }`}
-            >
-              {l.label}
-            </Link>
-          );
-        })}
-      </div>
-      <div className="flex gap-2 items-center">
-        <NotificationBell />
-        <LanguageToggle />
-        <LogoutButton />
-      </div>
-    </nav>
+    <>
+      {/* Desktop TopNav */}
+      <nav className="hidden md:flex justify-between items-center px-container-padding h-16 w-full max-w-7xl mx-auto bg-surface/80 backdrop-blur-xl fixed top-0 z-50 border-b border-outline-variant/30 shadow-md shadow-primary/10">
+        <Link href="/" className="text-headline-lg font-bold text-primary tracking-tighter">
+          {t("appName")}
+        </Link>
+        <div className="flex gap-4 text-label-md">
+          {links.map((l) => {
+            const isActive = active === l.href || pathname === l.href;
+            return (
+              <Link
+                key={l.href}
+                href={l.href}
+                className={`px-3 py-2 rounded-lg transition-colors ${
+                  isActive
+                    ? "text-secondary font-bold"
+                    : "text-on-surface-variant hover:bg-surface-bright"
+                }`}
+              >
+                {l.label}
+              </Link>
+            );
+          })}
+        </div>
+        <div className="flex gap-2 items-center">
+          <NotificationBell />
+          <LanguageToggle />
+          <UserDropdown />
+        </div>
+      </nav>
+      {/* Mobile Top Bar — consistent dropdown on tablet/mobile */}
+      <header className="md:hidden flex justify-between items-center px-4 h-14 w-full bg-surface/90 backdrop-blur-xl fixed top-0 z-50 border-b border-outline-variant/30">
+        <Link href="/" className="text-headline-lg-mobile font-bold text-primary tracking-tight">
+          {t("appName")}
+        </Link>
+        <div className="flex items-center gap-2">
+          <NotificationBell />
+          <UserDropdown />
+        </div>
+      </header>
+      {/* Mobile spacer to prevent content under fixed header — desktop offset is handled by page's md:pt-20 */}
+      <div className="md:hidden h-14" aria-hidden />
+    </>
   );
 }
 

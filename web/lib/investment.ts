@@ -20,12 +20,22 @@ export type AllowedMonthlyRate = (typeof ALLOWED_MONTHLY_RATES)[number];
 
 export const WITHDRAWAL_FEE_PKR = 100;
 
-/** Where members send deposit payments (shown on the deposit form). */
+/** Where members send Online Transfer payments (shown on the deposit form). */
 export const PAYMENT_ACCOUNT = {
-  accountName: "Saim",
-  accountNumber: "0325-2879424",
-  method: "EASYPAISA",
+  accountName: "Shakeela",
+  accountNumber: "0308-3958294",
+  method: "JAZZ CASH",
 } as const;
+
+/** Authoritative Online Transfer account (canonical). */
+export const ONLINE_PAYMENT_ACCOUNT = PAYMENT_ACCOUNT;
+
+/** Deposit payment methods — must stay in sync with DB CHECK deposits_payment_method_check */
+export const PAYMENT_METHODS = {
+  ONLINE_TRANSFER: "online_transfer",
+  CASH_AGENT: "cash_agent",
+} as const;
+export type PaymentMethod = (typeof PAYMENT_METHODS)[keyof typeof PAYMENT_METHODS];
 
 /** Server-side guard mirroring the DB CHECK constraint. */
 export function isAllowedMonthlyRate(v: unknown): v is AllowedMonthlyRate {
@@ -34,4 +44,14 @@ export function isAllowedMonthlyRate(v: unknown): v is AllowedMonthlyRate {
     Number.isFinite(v) &&
     (ALLOWED_MONTHLY_RATES as readonly number[]).includes(v)
   );
+}
+
+/** Server-side deposit amount validation — mirrors DB CHECK deposits_amount_range_check.
+ * Rejects NaN, Infinity, non-numeric, negative, zero, and values outside 5k-2M. */
+export function isValidDepositAmount(v: unknown): boolean {
+  if (typeof v !== "number") return false;
+  if (!Number.isFinite(v)) return false;
+  if (Number.isNaN(v)) return false;
+  if (v < MIN_INVESTMENT_PKR || v > MAX_INVESTMENT_PKR) return false;
+  return true;
 }

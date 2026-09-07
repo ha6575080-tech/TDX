@@ -22,6 +22,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { GlassPanel, FeedItem, Gauge } from "@/components/ui";
+import AdminDropdown from "@/components/UserDropdown";
 import ReceiptGenerator, { type ReceiptData } from "@/components/ReceiptGenerator";
 
 type Tab =
@@ -71,10 +72,18 @@ interface DepositRow {
   ai_confidence: number;
   status: string;
   created_at: string;
+  uploaded_at?: string;
+  approved_at?: string | null;
   fullName: string;
   username: string;
   mobile: string;
   packageName: string;
+  payment_method?: string;
+  cash_agent_name?: string | null;
+  cash_agent_id?: string | null;
+  cash_payment_date?: string | null;
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
 }
 
 interface WithdrawalRow {
@@ -695,15 +704,18 @@ export default function AdminPanel() {
 
   return (
     <main className="min-h-screen bg-base text-on-surface pb-24 md:pb-6 pt-20">
-      {/* Top Nav */}
+      {/* Top Nav — consistent dropdown for Super Admin on all viewports */}
       <nav className="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/30 shadow-md shadow-primary/10">
         <div className="flex justify-between items-center px-container-padding h-16 w-full max-w-7xl mx-auto">
           <div className="text-headline-lg font-bold text-primary">
             {t("appName")}
           </div>
-          <span className="bg-primary/10 text-primary border border-primary px-3 py-1 rounded-full text-label-sm animate-pulse-glow">
-            {t("admin")}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="bg-primary/10 text-primary border border-primary px-3 py-1 rounded-full text-label-sm animate-pulse-glow">
+              {t("admin")}
+            </span>
+            <AdminDropdown />
+          </div>
         </div>
       </nav>
 
@@ -967,11 +979,11 @@ export default function AdminPanel() {
                 <GlassPanel className="p-6"><p className="text-sm text-on-surface-variant">No pending deposits.</p></GlassPanel>
               )}
               {pendingDeposits.map((d) => (
-                <GlassPanel key={d.id} className="p-4 mb-3">
+                <GlassPanel key={d.id} className="p-4 mb-3 border-l-4 border-l-secondary">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="font-bold text-on-surface">{d.fullName} <span className="text-xs font-normal text-on-surface-variant">@{d.username}</span></p>
-                      <p className="text-xs text-on-surface-variant">{d.mobile}</p>
+                      <p className="text-xs text-on-surface-variant">{d.mobile} · Submitted: {fmtDate(d.created_at ?? (d as any).uploaded_at)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">{fmtPKR(d.amount)}</p>
@@ -979,8 +991,17 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-                    <span className="inline-flex rounded-full bg-secondary/15 px-3 py-1 font-semibold text-secondary border border-secondary/30">{d.status}</span>
-                    <span className="inline-flex rounded-full bg-primary/15 px-3 py-1 font-semibold text-primary border border-primary/30">AI: {d.ai_verdict || "unsure"} ({d.ai_confidence ?? 0}%)</span>
+                    <span className={`inline-flex rounded-full px-3 py-1 font-bold border ${d.status === 'pending' ? 'bg-amber-100 text-amber-800 border-amber-300' : d.status === 'approved' ? 'bg-primary/15 text-primary border-primary/30' : 'bg-error/15 text-error border-error/30'}`}>{(d.status ?? 'pending').toUpperCase()}</span>
+                    <span className={`inline-flex rounded-full px-3 py-1 font-bold border ${d.payment_method === 'cash_agent' ? 'bg-[#0B2E1F] text-[#A8E636] border-[#0B2E1F]' : 'bg-[#4C6B2A] text-white border-[#4C6B2A]'}`}>{d.payment_method === 'cash_agent' ? 'CASH TO AGENT' : 'ONLINE TRANSFER'}</span>
+                    {d.payment_method === 'cash_agent' ? (
+                      <>
+                        <span className="inline-flex rounded-full bg-surface-bright px-3 py-1 font-semibold text-on-surface border border-outline-variant/30">Agent: {d.cash_agent_name ?? 'Shakeela'}</span>
+                        {d.cash_payment_date && <span className="inline-flex rounded-full bg-surface-bright px-3 py-1 font-semibold text-on-surface border border-outline-variant/30">Payment Date: {fmtDate(d.cash_payment_date)}</span>}
+                      </>
+                    ) : (
+                      <span className={`inline-flex rounded-full px-3 py-1 font-semibold border ${d.receipt_image_url ? 'bg-primary/15 text-primary border-primary/30' : 'bg-error/15 text-error border-error/30'}`}>{d.receipt_image_url ? 'Receipt: Available' : 'Receipt: Missing'}</span>
+                    )}
+                    <span className="inline-flex rounded-full bg-primary/15 px-3 py-1 font-semibold text-primary border border-primary/30">AI: {d.ai_verdict || 'unsure'} ({d.ai_confidence ?? 0}%)</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => approveDeposit(d, "approve")} className="btn-3d-lime h-9 rounded-lg px-4 text-sm font-bold">
@@ -1002,6 +1023,8 @@ export default function AdminPanel() {
                       <th className="px-3 py-2">{t("name")}</th>
                       <th className="px-3 py-2">{t("mobile")}</th>
                       <th className="px-3 py-2">{t("deposited")}</th>
+                      <th className="px-3 py-2">Method</th>
+                      <th className="px-3 py-2">Agent / Receipt</th>
                       <th className="px-3 py-2">AI</th>
                       <th className="px-3 py-2">{t("status")}</th>
                       <th className="px-3 py-2">{t("registered")}</th>
@@ -1014,13 +1037,15 @@ export default function AdminPanel() {
                         <td className="px-3 py-2"><p className="font-medium">{d.fullName}</p><p className="text-xs text-on-surface-variant">@{d.username}</p></td>
                         <td className="px-3 py-2">{d.mobile}</td>
                         <td className="px-3 py-2 text-primary">{fmtPKR(d.amount)}</td>
+                        <td className="px-3 py-2"><span className={`inline-flex rounded-full px-2 py-1 text-[11px] font-bold border ${d.payment_method === 'cash_agent' ? 'bg-[#0B2E1F] text-[#A8E636] border-[#0B2E1F]' : 'bg-primary/15 text-primary border-primary/30'}`}>{d.payment_method === 'cash_agent' ? 'CASH TO AGENT' : 'ONLINE TRANSFER'}</span></td>
+                        <td className="px-3 py-2 text-xs">{d.payment_method === 'cash_agent' ? `${d.cash_agent_name ?? 'Shakeela'}${d.cash_payment_date ? ' · ' + fmtDate(d.cash_payment_date) : ''}` : (d.receipt_image_url ? 'Receipt ✓' : 'No receipt')}</td>
                         <td className="px-3 py-2">
                           <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
                             d.ai_verdict === "real" ? "bg-primary/15 text-primary" : d.ai_verdict === "fake" ? "bg-error/15 text-error" : "bg-secondary/15 text-secondary"
                           }`}>{d.ai_verdict || "unsure"}</span>
                         </td>
                         <td className="px-3 py-2"><span className={statusBadgeCls(d.status)}>{d.status}</span></td>
-                        <td className="px-3 py-2">{fmtDate(d.created_at)}</td>
+                        <td className="px-3 py-2">{fmtDate((d as any).uploaded_at ?? d.created_at)}</td>
                         <td className="px-3 py-2">
                           <button
                             onClick={() => openReceiptModal("deposit", d.id)}
@@ -1217,6 +1242,9 @@ export default function AdminPanel() {
             </div>
             <div>
               <h2 className="mb-3 text-lg font-bold text-secondary">{t("payouts")}</h2>
+              <p className="mb-3 rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 text-xs text-on-surface-variant">
+                Per-user monthly profit ledger (profits). Per-deposit payouts are processed via <code className="px-1 py-0.5 bg-surface-bright rounded">/api/admin/payouts/process</code> (payouts table) — same user/month cannot be paid via both ledgers.
+              </p>
               {pendingPayouts.length === 0 && (
                 <GlassPanel className="p-6"><p className="text-sm text-on-surface-variant">{t("noPendingPayouts")}</p></GlassPanel>
               )}

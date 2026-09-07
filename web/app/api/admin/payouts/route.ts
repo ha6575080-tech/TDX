@@ -88,6 +88,29 @@ export async function POST(request: Request) {
   }
 
   if (action === "payout") {
+    // Cross-ledger guard: per-deposit payouts (payouts table) already represent
+    // the same economic event for this user/month. Prevent double representation
+    // via both profits and payouts for the same month.
+    const { data: existingPayoutsForMonth } = await supabase
+      .from("payouts")
+      .select("id")
+      .eq("user_id", profit.user_id)
+      .eq("month", profit.month)
+      .eq("year", profit.year)
+      .eq("status", "paid")
+      .limit(1);
+    if (existingPayoutsForMonth && existingPayoutsForMonth.length > 0) {
+      return NextResponse.json(
+        { error: "Payout already processed via per-deposit ledger for this user/month" },
+        { status: 409 }
+      );
+    }
+    // Withdrawal guard: if a withdrawal already completed and recorded a paid profit
+    // for this cycle month (via complete_profit_withdrawal), a pending profit for same
+    // month should not be marked again — the withdrawal already paid it.
+    // The status check below already handles same-row case; cross-row not possible due to
+    // unique(user_id,month,year) but keep for clarity.
+
     // Idempotency: only a 'pending' profit may be marked paid. Re-submitting
     // an already-paid payout updates zero rows and returns a conflict.
     const { data: updatedRows, error: updateError } = await supabase

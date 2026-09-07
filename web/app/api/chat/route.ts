@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('supabaseUrl is required.');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
 export async function GET(req: Request) {
   // Authentication: the session user may only read their own thread.
@@ -14,7 +15,7 @@ export async function GET(req: Request) {
   if (error) return error;
   const userId = user!.id;
 
-  const { data, error: qErr } = await supabaseAdmin
+  const { data, error: qErr } = await getSupabaseAdmin()
     .from("messages")
     .select("*")
     .eq("user_id", userId)
@@ -68,7 +69,7 @@ export async function POST(req: Request) {
     message_ur: language === "ur" ? message : null,
     sender: "user",
   };
-  const { error: insErr } = await supabaseAdmin.from("messages").insert(userMsg);
+  const { error: insErr } = await getSupabaseAdmin().from("messages").insert(userMsg);
   if (insErr) {
     return NextResponse.json(
       { error: "failed to save your message" },
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
   // Use maybeSingle(): if no row exists (or the lookup fails), default to
   // admin-offline and continue to the AI/queue path. This does NOT insert or
   // invent configuration data to mask an error.
-  const { data: setting, error: settingsErr } = await supabaseAdmin
+  const { data: setting, error: settingsErr } = await getSupabaseAdmin()
     .from("system_settings")
     .select("value")
     .eq("key", "admin_chat_status")
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
     // Best-effort system message — the user prompt is already saved above, so
     // a failure here should not block the response.
     try {
-      await supabaseAdmin.from("messages").insert({
+      await getSupabaseAdmin().from("messages").insert({
         user_id,
         message: sysMsg,
         message_ur: language === "ur" ? sysMsg : null,
@@ -152,7 +153,7 @@ export async function POST(req: Request) {
         message_ur: language === "ur" ? aiReply : null,
         sender: "ai",
       };
-      await supabaseAdmin.from("messages").insert(aiMsg);
+      await getSupabaseAdmin().from("messages").insert(aiMsg);
       return NextResponse.json({ ok: true, mode: "ai", reply: aiReply });
     }
   } catch {
@@ -169,7 +170,7 @@ export async function POST(req: Request) {
   );
   // Best-effort — always return a response even if this insert fails.
   try {
-    await supabaseAdmin.from("messages").insert({
+    await getSupabaseAdmin().from("messages").insert({
       user_id,
       message: fallbackMsg,
       message_ur: language === "ur" ? fallbackMsg : null,

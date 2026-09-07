@@ -2,35 +2,36 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { autoRefreshToken: false, persistSession: false } }
-);
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error('supabaseUrl is required.');
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
+}
 
 export async function GET() {
   const { user, error } = await requireUser();
   if (error) return error;
 
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from("profiles")
     .select("full_name, username, mobile_number, city, status, created_at")
     .eq("id", user!.id)
     .single();
 
-  const { data: deposits } = await supabaseAdmin
+  const { data: deposits } = await getSupabaseAdmin()
     .from("deposits")
     .select("id, amount, status, created_at")
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
-  const { data: payouts } = await supabaseAdmin
+  const { data: payouts } = await getSupabaseAdmin()
     .from("payouts")
     .select("id, amount, percentage_applied, month, year, status, created_at")
     .eq("user_id", user!.id)
     .order("created_at", { ascending: false });
 
-  const { data: withdrawals } = await supabaseAdmin
+  const { data: withdrawals } = await getSupabaseAdmin()
     .from("withdrawals")
     .select("id, amount, status, created_at")
     .eq("user_id", user!.id)
