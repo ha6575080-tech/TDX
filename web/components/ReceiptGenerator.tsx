@@ -56,21 +56,21 @@ export default function ReceiptGenerator({ data }: { data: ReceiptData }) {
   const handleWord = async () => {
     const { Document, Packer, Paragraph, TextRun, AlignmentType } = await import("docx");
     const { saveAs } = await import("file-saver");
+    const docChildren: InstanceType<typeof Paragraph>[] = [
+      new Paragraph({ children: [new TextRun({ text: "TDX Investment", bold: true, size: 36 })], alignment: AlignmentType.CENTER }),
+      new Paragraph({ children: [new TextRun({ text: isUr ? "رسید" : "RECEIPT", bold: true, size: 28 })], alignment: AlignmentType.CENTER }),
+      new Paragraph({ children: [new TextRun("")] }),
+      new Paragraph({ children: [new TextRun(`${isUr ? "نوع" : "Type"}: ${data.type.toUpperCase()}`)] }),
+      new Paragraph({ children: [new TextRun(`${isUr ? "صارف" : "User"}: ${data.user}`)] }),
+      new Paragraph({ children: [new TextRun(`${isUr ? "موبائل" : "Mobile"}: ${data.mobile}`)] }),
+      new Paragraph({ children: [new TextRun(`${isUr ? "رقم" : "Amount"}: Rs ${(data.amount ?? 0).toLocaleString()}`)] }),
+      new Paragraph({ children: [new TextRun(`${isUr ? "حالت" : "Status"}: ${data.status}`)] }),
+      ...(data.percentage ? [new Paragraph({ children: [new TextRun(`${isUr ? "فیصد" : "Percentage"}: ${data.percentage}%`)] })] : []),
+      new Paragraph({ children: [new TextRun(`${isUr ? "تاریخ" : "Date"}: ${fmtDate(data.date)}`)] }),
+      new Paragraph({ children: [new TextRun(`ID: ${data.id}`)] }),
+    ];
     const doc = new Document({
-      sections: [{
-        children: [
-          new Paragraph({ children: [new TextRun({ text: "TDX Investment", bold: true, size: 36 })], alignment: AlignmentType.CENTER }),
-          new Paragraph({ children: [new TextRun({ text: isUr ? "رسید" : "RECEIPT", bold: true, size: 28 })], alignment: AlignmentType.CENTER }),
-          new Paragraph({ children: [new TextRun("")] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "نوع" : "Type"}: ${data.type.toUpperCase()}`)] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "صارف" : "User"}: ${data.user}`)] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "موبائل" : "Mobile"}: ${data.mobile}`)] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "رقم" : "Amount"}: Rs ${(data.amount ?? 0).toLocaleString()}`)] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "حالت" : "Status"}: ${data.status}`)] }),
-          new Paragraph({ children: [new TextRun(`${isUr ? "تاریخ" : "Date"}: ${fmtDate(data.date)}`)] }),
-          new Paragraph({ children: [new TextRun(`ID: ${data.id}`)] }),
-        ],
-      }],
+      sections: [{ children: docChildren }],
     });
     const blob = await Packer.toBlob(doc);
     saveAs(blob, `TDX-${data.type}-${data.id.slice(0, 8)}.docx`);
