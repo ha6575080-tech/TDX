@@ -187,10 +187,9 @@ export function Gauge({
 /* ===== LanguageToggle ===== */
 export function LanguageToggle() {
   const { lang, setLang } = useI18n();
-  const options: { code: "en" | "ur" | "sd"; label: string }[] = [
+  const options: { code: "en" | "ur"; label: string }[] = [
     { code: "en", label: "English" },
     { code: "ur", label: "اردو" },
-    { code: "sd", label: "سنڌي" },
   ];
   return (
     <div

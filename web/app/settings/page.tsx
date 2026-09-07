@@ -51,7 +51,7 @@ export default function SettingsPage() {
             <h2 className="text-title-md font-semibold text-on-surface">Language</h2>
             <p className="text-sm text-on-surface-variant mb-3">Choose your preferred language. This is stored locally and affects UI text.</p>
             <LanguageToggle />
-            <p className="mt-2 text-xs text-on-surface-variant/70">Current: {lang === "en" ? "English" : lang === "ur" ? "اردو" : "سنڌي"}</p>
+            <p className="mt-2 text-xs text-on-surface-variant/70">Current: {lang === "en" ? "English" : "اردو"}</p>
           </div>
 
           <div className="border-t border-outline-variant/20 pt-6">
