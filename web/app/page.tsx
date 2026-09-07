@@ -1,12 +1,63 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Rocket, ShieldCheck, TrendingUp, Wallet, BarChart3 } from "lucide-react";
+import { Rocket, ShieldCheck, TrendingUp, Wallet, BarChart3, Lock, EyeOff } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
+import { createClient } from "@/lib/supabase/client";
+import { PAYMENT_ACCOUNT } from "@/lib/investment";
 
 export default function Home() {
   const { t } = useI18n();
+  const [user, setUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    let subscription: any = null;
+
+    async function checkAuth() {
+      try {
+        // Guard: if env vars missing during offline build, treat as logged out
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+          if (mounted) {
+            setUser(null);
+            setAuthLoading(false);
+          }
+          return;
+        }
+        const supabase = createClient();
+        const { data } = await supabase.auth.getUser();
+        if (mounted) {
+          setUser(data?.user ?? null);
+          setAuthLoading(false);
+        }
+
+        // Subscribe to auth changes so login/logout updates UI without refresh
+        const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+          if (mounted) {
+            setUser(session?.user ?? null);
+          }
+        });
+        subscription = listener?.subscription;
+      } catch {
+        if (mounted) {
+          setUser(null);
+          setAuthLoading(false);
+        }
+      }
+    }
+
+    checkAuth();
+
+    return () => {
+      mounted = false;
+      if (subscription) subscription.unsubscribe();
+    };
+  }, []);
+
+  const isRegistered = !!user;
 
   return (
     <main className="min-h-screen bg-base text-on-surface flex flex-col overflow-x-hidden">
@@ -17,19 +68,33 @@ export default function Home() {
             {t("appName")}
           </div>
           <div className="flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-label-md text-on-surface-variant hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg"
-            >
-              {t("login")}
-            </Link>
-            <Link
-              href="/register"
-              className="text-label-md text-secondary font-bold hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg"
-            >
-              {t("register")}
-            </Link>
-            <LanguageToggle />
+            {isRegistered ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="text-label-md text-secondary font-bold hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg"
+                >
+                  Dashboard
+                </Link>
+                <LanguageToggle />
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="text-label-md text-on-surface-variant hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg"
+                >
+                  {t("login")}
+                </Link>
+                <Link
+                  href="/register"
+                  className="text-label-md text-secondary font-bold hover:bg-surface-bright transition-colors px-4 py-2 rounded-lg"
+                >
+                  {t("register")}
+                </Link>
+                <LanguageToggle />
+              </>
+            )}
           </div>
         </div>
       </nav>
@@ -39,7 +104,17 @@ export default function Home() {
         <div className="text-headline-lg-mobile font-bold text-primary">
           {t("appName")}
         </div>
-        <LanguageToggle />
+        <div className="flex items-center gap-2">
+          {isRegistered && (
+            <Link
+              href="/dashboard"
+              className="text-xs font-bold text-secondary px-3 py-1.5 rounded-lg bg-secondary/10"
+            >
+              Dashboard
+            </Link>
+          )}
+          <LanguageToggle />
+        </div>
       </header>
 
       {/* Main Content */}
@@ -59,12 +134,21 @@ export default function Home() {
             {t("heroSubtitle")}
           </p>
 
-          <Link href="/register">
-            <GlowButton className="px-10 py-4 mb-20">
-              {t("startEarning")}
-              <Rocket className="w-5 h-5" />
-            </GlowButton>
-          </Link>
+          {isRegistered ? (
+            <Link href="/dashboard">
+              <GlowButton className="px-10 py-4 mb-20">
+                Go to Dashboard
+                <Rocket className="w-5 h-5" />
+              </GlowButton>
+            </Link>
+          ) : (
+            <Link href="/register">
+              <GlowButton className="px-10 py-4 mb-20">
+                {t("startEarning")}
+                <Rocket className="w-5 h-5" />
+              </GlowButton>
+            </Link>
+          )}
 
           {/* Trust Banner */}
           <GlassPanel className="w-full max-w-5xl rounded-2xl p-6 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -85,32 +169,152 @@ export default function Home() {
             </div>
           </GlassPanel>
 
-          {/* Deposit Methods — publicly visible */}
+          {/* Deposit Methods — REGISTERED-ONLY for sensitive details */}
           <GlassPanel className="w-full max-w-5xl rounded-2xl p-6 mb-20 text-left">
-            <h2 className="text-title-lg font-bold text-primary mb-2">Official Deposit Methods</h2>
-            <p className="text-sm text-on-surface-variant mb-6">TDX supports two official deposit methods for every registered member. Non-registered visitors can view this information but must register/login to submit a deposit.</p>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
-                <h3 className="text-sm font-bold text-on-surface">Option 1 — Online Transfer</h3>
-                <div className="mt-3 rounded-lg bg-[#0B2E1F] p-4 text-sm text-white">
-                  <p className="font-semibold text-[#A8E636]">Send payment to:</p>
-                  <p className="mt-1 font-medium">Jazz Cash</p>
-                  <p>Account Name: Shakeela</p>
-                  <p>Jazz Cash Number: 0308-3958294</p>
-                </div>
-                <p className="mt-3 text-xs text-on-surface-variant">Transfer your deposit amount to the above Jazz Cash account, then upload your payment receipt in TDX for verification. Requires login.</p>
-              </div>
-              <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5">
-                <h3 className="text-sm font-bold text-on-surface">Option 2 — Cash to Agent</h3>
-                <div className="mt-3 rounded-lg border border-outline-variant/30 bg-surface-container-low p-4">
-                  <p className="text-sm font-semibold">Agent Name: Shakeela</p>
-                  <p className="text-xs text-on-surface-variant mt-1">Authorized cash collection agent. Hand cash directly to the agent and record the payment date.</p>
-                </div>
-                <p className="mt-3 text-xs text-on-surface-variant">Cash to Agent is usable only by authenticated registered members because it creates a member-specific financial record. Please <Link href="/register" className="font-semibold text-primary underline">register</Link> or <Link href="/login" className="font-semibold text-primary underline">login</Link> to submit.</p>
-              </div>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+              <h2 className="text-title-lg font-bold text-primary">Official Deposit Methods</h2>
+              {!authLoading && !isRegistered && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 text-amber-800 border border-amber-200 px-3 py-1 text-xs font-semibold">
+                  <Lock className="w-3.5 h-3.5" />
+                  Registered members only
+                </span>
+              )}
+              {!authLoading && isRegistered && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 text-green-800 border border-green-200 px-3 py-1 text-xs font-semibold">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Verified member access
+                </span>
+              )}
             </div>
-          </GlassPanel>
 
+            {authLoading ? (
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 animate-pulse">
+                  <div className="h-4 w-32 bg-surface-bright rounded mb-4" />
+                  <div className="h-20 w-full bg-surface-bright rounded" />
+                </div>
+                <div className="rounded-xl border border-outline-variant/20 bg-surface-container-low p-5 animate-pulse">
+                  <div className="h-4 w-32 bg-surface-bright rounded mb-4" />
+                  <div className="h-20 w-full bg-surface-bright rounded" />
+                </div>
+              </div>
+            ) : isRegistered ? (
+              <>
+                <p className="text-sm text-on-surface-variant mb-6">
+                  You are logged in as a registered member. Below are your official deposit channels. Choose one method per deposit.
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                    <h3 className="text-sm font-bold text-on-surface">Option 1 — Online Transfer</h3>
+                    <div className="mt-3 rounded-lg bg-[#0B2E1F] p-4 text-sm text-white">
+                      <p className="font-semibold text-[#A8E636]">Send payment to:</p>
+                      <p className="mt-1 font-medium">Jazz Cash</p>
+                      <p>Account Name: {PAYMENT_ACCOUNT.accountName}</p>
+                      <p>Jazz Cash Number: {PAYMENT_ACCOUNT.accountNumber}</p>
+                    </div>
+                    <p className="mt-3 text-xs text-on-surface-variant">
+                      Transfer your deposit amount to the above Jazz Cash account, then upload your payment receipt in TDX for verification.
+                    </p>
+                    <Link
+                      href="/dashboard#deposit-form"
+                      className="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-xs font-bold text-on-primary hover:bg-primary/90"
+                    >
+                      Deposit Now
+                    </Link>
+                  </div>
+                  <div className="rounded-xl border border-secondary/20 bg-secondary/5 p-5">
+                    <h3 className="text-sm font-bold text-on-surface">Option 2 — Cash to Agent</h3>
+                    <div className="mt-3 rounded-lg border border-outline-variant/30 bg-surface-container-low p-4">
+                      <p className="text-sm font-semibold">Agent Name: Shakeela</p>
+                      <p className="text-xs text-on-surface-variant mt-1">Authorized cash collection agent. Hand cash directly to the agent and record the payment date.</p>
+                    </div>
+                    <p className="mt-3 text-xs text-on-surface-variant">
+                      Use Cash to Agent if you prefer handing cash directly. Your payment date will be recorded and verified by admin.
+                    </p>
+                    <Link
+                      href="/dashboard#deposit-form"
+                      className="mt-3 inline-flex h-9 items-center justify-center rounded-lg bg-secondary px-4 text-xs font-bold text-on-secondary hover:bg-secondary/90"
+                    >
+                      Deposit via Agent
+                    </Link>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-on-surface-variant mb-6">
+                  TDX supports two official deposit methods for every registered member. For security, official payment details are visible only to registered and logged-in members.
+                </p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
+                    <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                      Option 1 — Online Transfer
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        <Lock className="w-3 h-3" /> Locked
+                      </span>
+                    </h3>
+                    <div className="mt-3 rounded-lg bg-[#0B2E1F]/90 p-4 text-sm text-white relative">
+                      <div className="flex items-center gap-2 text-[#A8E636] font-semibold">
+                        <EyeOff className="w-4 h-4" />
+                        Official account hidden
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        <div className="h-3 w-24 bg-white/20 rounded blur-[0.5px]" />
+                        <div className="h-3 w-32 bg-white/20 rounded blur-[0.5px]" />
+                        <div className="h-3 w-40 bg-white/20 rounded blur-[0.5px]" />
+                      </div>
+                      <p className="mt-3 text-xs text-white/70">Jazz Cash details are available after you register and log in.</p>
+                    </div>
+                    <p className="mt-3 text-xs text-on-surface-variant">
+                      Register to view the official Jazz Cash account and upload your payment receipt for verification.
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
+                    <h3 className="text-sm font-bold text-on-surface flex items-center gap-2">
+                      Option 2 — Cash to Agent
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-700">
+                        <Lock className="w-3 h-3" /> Locked
+                      </span>
+                    </h3>
+                    <div className="mt-3 rounded-lg border border-outline-variant/30 bg-surface-bright p-4 relative">
+                      <div className="flex items-center gap-2 text-on-surface-variant font-semibold text-sm">
+                        <EyeOff className="w-4 h-4" />
+                        Authorized agent hidden
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        <div className="h-3 w-28 bg-surface-container-high rounded blur-[0.5px]" />
+                        <div className="h-2 w-48 bg-surface-container-high rounded blur-[0.5px]" />
+                      </div>
+                      <p className="mt-3 text-xs text-on-surface-variant">Agent details are available for registered members only.</p>
+                    </div>
+                    <p className="mt-3 text-xs text-on-surface-variant">
+                      Cash to Agent creates a member-specific financial record, so it is usable only by authenticated members.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-6 flex flex-col sm:flex-row gap-3">
+                  <Link
+                    href="/register"
+                    className="h-11 inline-flex items-center justify-center rounded-lg bg-primary px-6 text-sm font-bold text-on-primary hover:bg-primary/90 transition-colors"
+                  >
+                    Register to View Deposit Details
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="h-11 inline-flex items-center justify-center rounded-lg border border-outline-variant/50 px-6 text-sm font-semibold text-on-surface hover:bg-surface-bright transition-colors"
+                  >
+                    Login
+                  </Link>
+                </div>
+                <p className="mt-4 text-xs text-on-surface-variant/70 flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  No Jazz Cash number or agent details are shown to unregistered visitors.
+                </p>
+              </>
+            )}
+          </GlassPanel>
         </div>
       </main>
 
@@ -135,4 +339,3 @@ export default function Home() {
     </main>
   );
 }
-
