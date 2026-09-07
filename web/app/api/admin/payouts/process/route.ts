@@ -44,7 +44,9 @@ export async function POST(req: Request) {
   const month = now.getMonth() + 1;
   const year = now.getFullYear();
 
-  // Prevent duplicate payout for same deposit in same month
+  // Prevent duplicate payout for same deposit in same month (app-level check).
+  // The authoritative guard is the DB unique index payouts_unique_deposit_month_year
+  // (42703/42P01 fixed by 20260908000001 migration which created payouts + missing columns).
   const { data: existingPayout } = await getSupabaseAdmin()
     .from("payouts")
     .select("id")
@@ -52,7 +54,7 @@ export async function POST(req: Request) {
     .eq("month", month)
     .eq("year", year)
     .eq("status", "paid")
-    .single();
+    .maybeSingle();
 
   if (existingPayout) {
     return NextResponse.json(
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // 2. Insert payout record
+  // 2. Insert payout record — unique index guarantees exactly-once per month even under race.
   const { error: payoutErr } = await getSupabaseAdmin().from("payouts").insert({
     user_id: deposit.user_id,
     deposit_id,
@@ -72,7 +74,16 @@ export async function POST(req: Request) {
     status: "paid",
   });
 
-  if (payoutErr) return internalError("admin/payouts/process", payoutErr);
+  if (payoutErr) {
+    // 23505 = unique_violation from the partial index => concurrent duplicate
+    if ((payoutErr as { code?: string }).code === "23505") {
+      return NextResponse.json(
+        { error: "Payout already processed for this deposit this month" },
+        { status: 409 }
+      );
+    }
+    return internalError("admin/payouts/process", payoutErr);
+  }
 
   // 3. Update deposit: advance next_payout_date by 30 days, update percentage
   const nextDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
