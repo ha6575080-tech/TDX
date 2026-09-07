@@ -238,7 +238,6 @@ export async function POST(request: Request) {
       paymentMethod === "cash_agent"
         ? `مبارک ہو! آپ کی نقد جمع شدہ رقم Rs ${amountStr} موصول اور منظور ہو گئی ہے۔ آپ کا ماہانہ منافع سائیکل ${cycleStartDateGB} سے شروع ہوگا۔`
         : `مبارک ہو! آپ کی آن لائن جمع شدہ رقم Rs ${amountStr} موصول اور منظور ہو گئی ہے۔ آپ کا ماہانہ منافع سائیکل ${cycleStartDateGB} سے شروع ہوگا۔`;
-    // Sindhi fallback uses Urdu field (architecture preserved)
     const { error: msgError } = await supabase.from("messages").insert({
       user_id: userId,
       sender: "system",

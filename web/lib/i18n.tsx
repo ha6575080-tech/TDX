@@ -1,8 +1,8 @@
-﻿"use client";
+"use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
 
-export type Lang = "en" | "ur" | "sd";
+export type Lang = "en" | "ur";
 
 export const translations = {
   en: {
@@ -52,7 +52,6 @@ export const translations = {
     selectLanguage: "Select Language",
     english: "English",
     urdu: "Urdu",
-    sindhi: "Sindhi",
     receiptGenerated: "Receipt generated successfully.",
     receiptFailed: "Failed to generate receipt.",
     profitLossStatement: "Profit & Loss Statement",
@@ -401,7 +400,6 @@ export const translations = {
     selectLanguage: "زبان منتخب کریں",
     english: "انگریزی",
     urdu: "اردو",
-    sindhi: "سنڌي",
     receiptGenerated: "رسید کامیابی سے تیار ہو گئی۔",
     receiptFailed: "رسید تیار کرنے میں ناکامی۔",
     profitLossStatement: "منافع و نقصان بیانیہ",
@@ -703,85 +701,6 @@ export const translations = {
     pushNotificationsOn: "پش اطلاعات فعال ہو گئیں",
     forbidden: "آپ کو اس وسائل تک رسائی نہیں ہے۔",
   },
-  sd: {
-    appName: "TDX انويسٽمينٽ",
-    dashboard: "ڊيش بورڊ",
-    tasks: "ٽاسڪ",
-    stats: "شماريات",
-    chat: "چيٽ",
-    home: "هوم",
-    admin: "ايڊمن",
-    login: "لاگ ان",
-    register: "رجسٽر",
-    logout: "لاگ آئوٽ",
-    totalBalance: "ڪل بيلنس",
-    activeDeposits: "فعال ڊپازٽ",
-    dailyTasks: "روزاني ٽاسڪ",
-    totalWithdrawals: "ڪل واپسي",
-    dailyPotential: "روزاني ممڪن ڪمائي",
-    earned: "ڪمائي",
-    deposit: "ڊپازٽ",
-    withdraw: "واپس وٺو",
-    totalDeposited: "ڪل ڊپازٽ",
-    totalProfit: "ڪل نفعو",
-    totalWithdrawn: "ڪل واپسي",
-    referralBonus: "ريفيرل بونس",
-    selectLanguage: "ٻولي چونڊيو",
-    english: "انگريزي",
-    urdu: "اردو",
-    sindhi: "سنڌي",
-    backToDashboard: "← ڊيش بورڊ ڏانهن واپس",
-    backToHome: "← هوم ڏانهن واپس",
-    welcomeBack: "ڀلي ڪري آيا! پنهنجي کاتي ۾ لاگ ان ڪريو.",
-    emailOrMobile: "اي ميل يا موبائل نمبر",
-    password: "پاس ورڊ",
-    loggingIn: "لاگ ان ٿي رهيو آهي...",
-    dontHaveAccount: "اڃا کاتو ڪونهي؟",
-    createAccount: "ڪمائڻ شروع ڪرڻ لاءِ پنهنجو کاتو کوليو.",
-    fullName: "پورو نالو",
-    supportChat: "سپورٽ چيٽ",
-    aiBot: "اِي آءِ بوٽ",
-    realHuman: "حقيقي ماڻهو",
-    humanWillReply: "هڪ ايڊمن جلد جواب ڏيندو.",
-    noMessages: "اڃا ڪوبہ پيغام ڪونهي. اسان کان ڪجهه پڇو!",
-    send: "موڪليو",
-    askAi: "اِي آءِ بوٽ کان سوال پڇو...",
-    typeHuman: "ايڊمن لاءِ پيغام لکو...",
-    withdrawFunds: "فنڊ واپس وٺو",
-    amountPkr: "رقم (پي کي آر)",
-    processing: "پرويس ٿي رهيو آهي...",
-    pending: "زير التوا",
-    approved: "منظور ٿيل",
-    completed: "مڪمل",
-    rejected: "رد ٿيل",
-    today: "اڄ",
-    loading: "لوڊ ٿي رهيو آهي...",
-    ok: "ٺيڪ آهي",
-    language: "ٻولي",
-    notifications: "اطلاعات",
-    noNotifications: "اڃا ڪوبہ اطلاع ڪونهي.",
-    markAllRead: "سڀ پڙهيل نشان لڳايو",
-    markRead: "پڙهيل نشان لڳايو",
-    notificationsError: "اطلاعات لوڊ ڪرڻ ۾ ناڪامي.",
-    loadingNotifications: "اطلاعات لوڊ ٿين پيا آهن…",
-    markReadError: "پڙھيل طور نشان زد نه ٿيو. ٻيهر ڪوشش ڪريو.",
-    retry: "ٻيهر ڪوشش ڪريو",
-    enablePush: "پش اطلاعون فعال ڪريو",
-    pushEnabled: "پش اطلاعون فعال ٿي ويون",
-    globalChat: "عالمي چيٽ",
-    chatWithAdmin: "ايڊمن سان ڳالهايو",
-    chatBubbleSend: "موڪليو",
-    chatBubblePlaceholder: "پيغام لکو...",
-    adminReply: "ايڊمن جو جواب",
-    notificationInbox: "اطلاعات",
-    noMessagesYet: "اڃا ڪوبہ پيغام ڪونهي. اسان کان ڪجهه پڇو!",
-    loadingMessages: "پيغام لوڊ ٿي رهيا آهن...",
-    failedToLoad: "لوڊ ڪرڻ ۾ ناڪامي.",
-    failedToSend: "پيغام موڪلڻ ۾ ناڪامي.",
-    loginFailed: "لاگ ان ناڪام ٿيو. ٻيهر ڪوشش ڪريو.",
-    notAuthenticated: "تصديق ڪانه ٿي.",
-    forbidden: "توهان کي هن وسيلي تائين رسائي ڪونهي.",
-  },
 } as const;
 
 export type TranslationKey = keyof (typeof translations)["en"];
@@ -818,7 +737,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const saved = getCookie("locale");
-    if (saved === "en" || saved === "ur" || saved === "sd") {
+    if (saved === "en" || saved === "ur") {
       setLangState(saved);
     }
   }, []);
@@ -828,7 +747,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setCookie("locale", l);
   };
 
-  // Urdu and Sindhi are both written right-to-left (Arabic script).
+  // Urdu is written right-to-left (Arabic script).
   const dir: "ltr" | "rtl" = lang === "en" ? "ltr" : "rtl";
 
   useEffect(() => {
@@ -837,7 +756,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [dir, lang]);
 
   const t = (key: TranslationKey) => {
-    // Sindhi ships as a curated subset; fall back to English for the rest.
+    // Fall back to English for missing keys.
     const dict = translations[lang] as Record<
       string,
       string | ((...args: never[]) => string) | undefined
