@@ -190,6 +190,23 @@ export const translations = {
     active: "Active",
     inactive: "Inactive",
     suspended: "Suspended",
+    accountSuspendedTitle: "Account Suspended",
+    accountSuspendedMessage:
+      "Your account has been suspended by the administrator. You no longer have access to your dashboard or financial actions. Your financial records are preserved and unchanged.",
+    accountSuspendedContact:
+      "If you believe this is a mistake, please contact support.",
+    statusHistory: "Status history",
+    noStatusChanges: "No status changes recorded yet.",
+    changedBy: "Changed by",
+    changedAt: "Changed at",
+    reason: "Reason",
+    cancel: "Cancel",
+    confirm: "Confirm",
+    confirmStatusTo: "Change status to",
+    suspendEffect:
+      "The member will be blocked from logging in and from the dashboard. Their deposits, profits, withdrawals, receipts and ledger records are preserved and remain available to you.",
+    deactivateEffect:
+      "The account and all historical data are preserved. The member is marked not financially active until reactivated.",
     invoice: "Investment Invoice",
     print: "Print",
     invoiceNo: "Invoice #",
@@ -538,6 +555,23 @@ export const translations = {
     active: "فعال",
     inactive: "غیر فعال",
     suspended: "معطل",
+    accountSuspendedTitle: "اکاؤنٹ معطل کر دیا گیا",
+    accountSuspendedMessage:
+      "آپ کا اکاؤنٹ انتظامیہ کے ذریعے معطل کر دیا گیا ہے۔ آپ کی ڈیش بورڈ اور مالیاتی کارروائیوں تک رسائی ختم ہو گئی ہے۔ آپ کے تمام مالیاتی ریکارڈ محفوظ اور تبدیل شدہ نہیں ہیں۔",
+    accountSuspendedContact:
+      "اگر آپ سمجھتے ہیں کہ یہ غلطی ہے تو براہ کرم سپورٹ سے رابطہ کریں۔",
+    statusHistory: "حالت کا ریکارڈ",
+    noStatusChanges: "ابھی تک کوئی حالت تبدیلی درج نہیں۔",
+    changedBy: "تبدیل کرنے والا",
+    changedAt: "تبدیلی کا وقت",
+    reason: "وجہ",
+    cancel: "منسوخ",
+    confirm: "تصدیق کریں",
+    confirmStatusTo: "حالت تبدیل کریں",
+    suspendEffect:
+      "صارف لاگ ان اور ڈیش بورڈ سے روک دیا جائے گا۔ اس کے ڈپازٹس، منافع، نکاسی، رسیدیں اور لیجر ریکارڈ محفوظ رہیں گے اور آپ کو دستیاب ہوں گے۔",
+    deactivateEffect:
+      "اکاؤنٹ اور تمام تاریخی ڈیٹا محفوظ رہیں گے۔ دوبارہ فعال کرنے تک صارف مالی طور پر فعال نہیں ہوگا۔",
     invoice: "سرمایہ کاری انوائس",
     print: "پرنٹ",
     invoiceNo: "انوائس #",

@@ -12,7 +12,9 @@ import {
   ArrowUpFromLine,
   User,
   MessageCircle,
+  ShieldAlert,
 } from "lucide-react";
+import LogoutButton from "@/components/LogoutButton";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import {
@@ -113,6 +115,16 @@ function statusBadge(status: string) {
   }
 }
 
+// Sentinel thrown when /api/account/summary reports the account as suspended
+// (403 {error: "account_suspended"}). Distinguishes the suspended state from
+// generic load errors so the UI shows the clear suspended screen.
+class AccountSuspendedError extends Error {
+  constructor() {
+    super("account_suspended");
+    this.name = "AccountSuspendedError";
+  }
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -129,6 +141,10 @@ export default function DashboardPage() {
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // SUSPENSION GUARD: true when the server reports this account as suspended
+  // (either via the /api/account/summary 403 gate or the profile flag). The
+  // normal dashboard is then not rendered at all.
+  const [suspended, setSuspended] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -155,9 +171,22 @@ export default function DashboardPage() {
       // NOTE: the package model has been removed from the active product —
       // members enter a free investment amount (5,000–2,000,000 PKR), so the
       // packages table is no longer queried here.
+      //
+      // SUSPENSION GATE: /api/account/summary returns 403 {error:
+      // "account_suspended"} for suspended members — the authoritative
+      // server-side block. We surface a dedicated suspended screen instead
+      // of the normal dashboard (records are untouched; admin keeps access).
       const [summaryRes, depositsRes, annRes] = await Promise.all([
-        fetch("/api/account/summary").then((r) => {
-          if (!r.ok) throw new Error("Failed to load account summary.");
+        fetch("/api/account/summary").then(async (r) => {
+          if (!r.ok) {
+            const body = (await r.json().catch(() => null)) as {
+              error?: string;
+            } | null;
+            if (body?.error === "account_suspended") {
+              throw new AccountSuspendedError();
+            }
+            throw new Error("Failed to load account summary.");
+          }
           return r.json() as Promise<AccountSummary>;
         }),
         supabase
@@ -181,8 +210,17 @@ export default function DashboardPage() {
       setTotalProfit(summaryRes.display.totalProfit);
       setTotalWithdrawn(summaryRes.display.totalWithdrawn);
       setFinancial(summaryRes.financial ?? null);
+
+      // Belt-and-braces: if the profile flag says suspended, block too.
+      if ((summaryRes.profile as Profile | null)?.is_suspended) {
+        setSuspended(true);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load dashboard.");
+      if (err instanceof AccountSuspendedError) {
+        setSuspended(true);
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to load dashboard.");
+      }
     } finally {
       setLoading(false);
     }
@@ -198,6 +236,37 @@ export default function DashboardPage() {
   // Server-computed authoritative balance (see /api/account/summary).
   const totalBalance =
     totalDeposited + totalProfit - totalWithdrawn - deductions;
+
+  // SUSPENDED SCREEN — replaces the entire normal dashboard. No financial
+  // data is rendered, no financial action is possible from here, and nothing
+  // is deleted or altered: the member's records remain fully intact and
+  // accessible to the Super Admin.
+  if (suspended) {
+    return (
+      <main className="min-h-screen bg-base text-on-surface flex items-center justify-center p-4 antialiased overflow-x-hidden">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+          <div className="orb-glow bg-error/10 w-96 h-96 top-20 left-10" />
+        </div>
+        <div className="w-full max-w-md mx-auto relative z-10">
+          <div className="glass-panel rounded-2xl p-8 flex flex-col items-center gap-4 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-error/10 border border-error/30">
+              <ShieldAlert className="h-8 w-8 text-error" />
+            </div>
+            <h1 className="text-headline-lg font-bold text-error">
+              {t("accountSuspendedTitle")}
+            </h1>
+            <p className="text-body-md text-on-surface-variant leading-relaxed">
+              {t("accountSuspendedMessage")}
+            </p>
+            <p className="text-label-sm text-on-surface-variant/60">
+              {t("accountSuspendedContact")}
+            </p>
+            <LogoutButton />
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-base text-on-surface pb-24 md:pb-0 md:pt-20">

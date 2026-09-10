@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { internalError } from "@/lib/api-errors";
+import { internalError, logServerWarn } from "@/lib/api-errors";
+import {
+  deriveMemberStatus,
+  isMemberStatus,
+  statusToProfileFlags,
+  type MemberStatus,
+} from "@/lib/member-status";
 
 export async function GET(request: Request) {
   const { error } = await requireAdmin();
@@ -55,13 +61,114 @@ export async function GET(request: Request) {
   return NextResponse.json({ users });
 }
 
+/**
+ * Temporary deployment-order safety net.
+ *
+ * The set_member_status() RPC only exists after migration
+ * 20260910000000_member_status_control.sql is applied. If the app is ever
+ * running against a not-yet-migrated database, this helper applies the same
+ * flag change with a direct service-role update (the pre-feature behavior),
+ * so admin status controls keep working during that window. It writes NO
+ * audit row (the table does not exist yet). Once the migration is applied,
+ * the atomic, audited, DB-authorized RPC path is used automatically instead.
+ */
+async function fallbackDirectStatusChange(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  userId: string,
+  target: MemberStatus
+) {
+  const { data: profile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("is_active, is_suspended")
+    .eq("id", userId)
+    .single();
+  if (fetchError || !profile) {
+    return {
+      error: NextResponse.json({ error: "User not found" }, { status: 404 }),
+      response: null,
+    };
+  }
+
+  const previous = deriveMemberStatus(profile);
+  if (previous === target) {
+    return {
+      error: null,
+      response: NextResponse.json({
+        success: true,
+        changed: false,
+        status: target,
+        previous_status: previous,
+        is_active: profile.is_active,
+        is_suspended: profile.is_suspended,
+      }),
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update(statusToProfileFlags(target))
+    .eq("id", userId);
+  if (updateError) {
+    return { error: internalError("admin/users", updateError), response: null };
+  }
+
+  const { data: updated } = await supabase
+    .from("profiles")
+    .select("is_active, is_suspended")
+    .eq("id", userId)
+    .single();
+
+  return {
+    error: null,
+    response: NextResponse.json({
+      success: true,
+      changed: true,
+      status: target,
+      previous_status: previous,
+      is_active: updated?.is_active ?? false,
+      is_suspended: updated?.is_suspended ?? false,
+    }),
+  };
+}
+
+/**
+ * Map the set_member_status() RPC failure reasons to HTTP responses.
+ * The RPC is the only writer: it enforces admin authorization at the DB
+ * layer (defense in depth) and pairs every status change with its audit row
+ * in one transaction.
+ */
+function rpcFailure(reason: string | null) {
+  switch (reason) {
+    case "member_not_found":
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    case "invalid_status":
+      return NextResponse.json(
+        { error: "Invalid status — expected active, inactive or suspended" },
+        { status: 400 }
+      );
+    case "forbidden":
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    default:
+      return NextResponse.json(
+        { error: `Status change failed (${reason ?? "unknown"}).` },
+        { status: 400 }
+      );
+  }
+}
+
 export async function POST(request: Request) {
-  const { error } = await requireAdmin();
+  const { error, user: adminUser } = await requireAdmin();
   if (error) return error;
+  const adminUserId = (adminUser as { id?: string })?.id ?? null;
+  if (!adminUserId) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   let body: {
     userId?: string;
-    action?: "toggle_suspend" | "reset_password";
+    action?: "toggle_suspend" | "reset_password" | "set_status";
+    status?: string;
+    reason?: string;
   };
   try {
     body = await request.json();
@@ -79,32 +186,104 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceRoleClient();
 
-  if (action === "toggle_suspend") {
-    const { data: profile, error: fetchError } = await supabase
-      .from("profiles")
-      .select("is_suspended")
-      .eq("id", userId)
-      .single();
-
-    if (fetchError || !profile) {
-      return NextResponse.json(
-        { error: "User not found" },
-        { status: 404 }
-      );
+  if (action === "set_status" || action === "toggle_suspend") {
+    // Resolve the target status.
+    let target: MemberStatus;
+    if (action === "set_status") {
+      if (!isMemberStatus(body.status)) {
+        return NextResponse.json(
+          { error: "Invalid status — expected active, inactive or suspended" },
+          { status: 400 }
+        );
+      }
+      target = body.status;
+    } else {
+      // Legacy toggle: flip between the member's current state and
+      // suspended/previous-state. Route it through the same audited
+      // primitive so EVERY status change leaves an audit trail.
+      const { data: profile, error: fetchError } = await supabase
+        .from("profiles")
+        .select("id, is_active, is_suspended")
+        .eq("id", userId)
+        .single();
+      if (fetchError || !profile) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+      target = profile.is_suspended
+        ? (profile.is_active ? "active" : "inactive")
+        : "suspended";
     }
 
-    const { error: updateError } = await supabase
-      .from("profiles")
-      .update({ is_suspended: !profile.is_suspended })
-      .eq("id", userId);
+    // The reason is optional; trim + cap length so the audit stays tidy.
+    const reason =
+      typeof body.reason === "string" && body.reason.trim() !== ""
+        ? body.reason.trim().slice(0, 500)
+        : null;
 
-    if (updateError) {
-      return internalError("admin/users", updateError);
+    // Atomic, DB-authorized transition + audit row (one transaction).
+    // The RPC works for ANY member regardless of deposits/receipts — there
+    // is deliberately no financial precondition here.
+    const { data: result, error: rpcError } = await supabase.rpc(
+      "set_member_status",
+      {
+        p_member_id: userId,
+        p_status: target,
+        p_changed_by: adminUserId,
+        p_reason: reason,
+      }
+    );
+
+    if (rpcError) {
+      // Deployment-order safety net: PGRST202 = "function not found in the
+      // schema cache", i.e. the project database has not been migrated yet.
+      // Fall back to the direct update so the admin control still works
+      // (logged loudly). Any OTHER error is a real failure → 500 as before.
+      const rpcMissing =
+        rpcError.code === "PGRST202" ||
+        /could not find the function|function .*set_member_status/i.test(
+          rpcError.message ?? ""
+        );
+      if (rpcMissing) {
+        logServerWarn(
+          "admin/users",
+          new Error("set_member_status RPC missing — migration not applied"),
+          `using direct-update fallback (no audit row) for target=${target} member=${userId}`
+        );
+        const fb = await fallbackDirectStatusChange(supabase, userId, target);
+        if (fb.error) return fb.error;
+        return fb.response!;
+      }
+      return internalError("admin/users", rpcError);
+    }
+    const res = result as {
+      ok: boolean;
+      changed: boolean;
+      status: MemberStatus;
+      previous_status: MemberStatus;
+      reason?: string;
+    } | null;
+    if (!res || !res.ok) {
+      return rpcFailure(res?.reason ?? null);
+    }
+
+    // Read back the authoritative flags so the UI refreshes to the exact
+    // server state (suspension preserves is_active — do not assume).
+    const { data: updated, error: readError } = await supabase
+      .from("profiles")
+      .select("is_active, is_suspended")
+      .eq("id", userId)
+      .single();
+    if (readError) {
+      return internalError("admin/users", readError);
     }
 
     return NextResponse.json({
       success: true,
-      is_suspended: !profile.is_suspended,
+      changed: res.changed,
+      status: res.status,
+      previous_status: res.previous_status,
+      is_active: updated?.is_active ?? false,
+      is_suspended: updated?.is_suspended ?? false,
     });
   }
 

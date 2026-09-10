@@ -217,12 +217,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Deposit is not pending — already processed." }, { status: 409 });
     }
 
-    // Financial activation: is_active true, profit cycle starts NEXT DAY (server-calculated)
+    // Financial activation: is_active true, profit cycle starts NEXT DAY (server-calculated).
+    // DEPOSIT/STATUS INDEPENDENCE: approval must NOT touch is_suspended.
+    // Member account status is an admin-controlled account-control function
+    // (see /api/admin/users set_status + set_member_status RPC). A Super
+    // Admin's manual suspension takes precedence and is never silently
+    // cleared by deposit activity — approving a deposit for a suspended
+    // member keeps them suspended until an admin explicitly reactivates.
     const { error: updateProfileError } = await supabase
       .from("profiles")
       .update({
         is_active: true,
-        is_suspended: false,
         profit_activation_date: cycleStartISO,
       })
       .eq("id", userId);

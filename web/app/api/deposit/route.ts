@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import nodemailer from "nodemailer";
 import { internalError, escapeHtml, logServerWarn } from "@/lib/api-errors";
@@ -216,6 +216,18 @@ async function notifyAdmins(
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
+
+  // SUSPENSION GATE: a suspended member cannot submit or update deposits.
+  // (Pure access control — no deposit/receipt calculation is modified.)
+  const userClient = await createClient();
+  const { data: me } = await userClient
+    .from("profiles")
+    .select("is_suspended")
+    .eq("id", user.id)
+    .single();
+  if (me?.is_suspended) {
+    return NextResponse.json({ error: "account_suspended" }, { status: 403 });
+  }
 
   let body: { depositId?: string; userId?: string };
   try {
