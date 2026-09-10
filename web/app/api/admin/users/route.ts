@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { internalError } from "@/lib/api-errors";
-import { isMemberStatus, type MemberStatus } from "@/lib/member-status";
+import { internalError, logServerWarn } from "@/lib/api-errors";
+import {
+  deriveMemberStatus,
+  isMemberStatus,
+  statusToProfileFlags,
+  type MemberStatus,
+} from "@/lib/member-status";
 
 export async function GET(request: Request) {
   const { error } = await requireAdmin();
@@ -54,6 +59,76 @@ export async function GET(request: Request) {
   }));
 
   return NextResponse.json({ users });
+}
+
+/**
+ * Temporary deployment-order safety net.
+ *
+ * The set_member_status() RPC only exists after migration
+ * 20260910000000_member_status_control.sql is applied. If the app is ever
+ * running against a not-yet-migrated database, this helper applies the same
+ * flag change with a direct service-role update (the pre-feature behavior),
+ * so admin status controls keep working during that window. It writes NO
+ * audit row (the table does not exist yet). Once the migration is applied,
+ * the atomic, audited, DB-authorized RPC path is used automatically instead.
+ */
+async function fallbackDirectStatusChange(
+  supabase: Awaited<ReturnType<typeof createServiceRoleClient>>,
+  userId: string,
+  target: MemberStatus
+) {
+  const { data: profile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("is_active, is_suspended")
+    .eq("id", userId)
+    .single();
+  if (fetchError || !profile) {
+    return {
+      error: NextResponse.json({ error: "User not found" }, { status: 404 }),
+      response: null,
+    };
+  }
+
+  const previous = deriveMemberStatus(profile);
+  if (previous === target) {
+    return {
+      error: null,
+      response: NextResponse.json({
+        success: true,
+        changed: false,
+        status: target,
+        previous_status: previous,
+        is_active: profile.is_active,
+        is_suspended: profile.is_suspended,
+      }),
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update(statusToProfileFlags(target))
+    .eq("id", userId);
+  if (updateError) {
+    return { error: internalError("admin/users", updateError), response: null };
+  }
+
+  const { data: updated } = await supabase
+    .from("profiles")
+    .select("is_active, is_suspended")
+    .eq("id", userId)
+    .single();
+
+  return {
+    error: null,
+    response: NextResponse.json({
+      success: true,
+      changed: true,
+      status: target,
+      previous_status: previous,
+      is_active: updated?.is_active ?? false,
+      is_suspended: updated?.is_suspended ?? false,
+    }),
+  };
 }
 
 /**
@@ -159,6 +234,25 @@ export async function POST(request: Request) {
     );
 
     if (rpcError) {
+      // Deployment-order safety net: PGRST202 = "function not found in the
+      // schema cache", i.e. the project database has not been migrated yet.
+      // Fall back to the direct update so the admin control still works
+      // (logged loudly). Any OTHER error is a real failure → 500 as before.
+      const rpcMissing =
+        rpcError.code === "PGRST202" ||
+        /could not find the function|function .*set_member_status/i.test(
+          rpcError.message ?? ""
+        );
+      if (rpcMissing) {
+        logServerWarn(
+          "admin/users",
+          new Error("set_member_status RPC missing — migration not applied"),
+          `using direct-update fallback (no audit row) for target=${target} member=${userId}`
+        );
+        const fb = await fallbackDirectStatusChange(supabase, userId, target);
+        if (fb.error) return fb.error;
+        return fb.response!;
+      }
       return internalError("admin/users", rpcError);
     }
     const res = result as {
