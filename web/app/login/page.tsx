@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { LogIn, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { LogIn, Eye, EyeOff, ShieldCheck, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
@@ -28,10 +28,14 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  // Set when a SUSPENDED member tries to log in — the session is signed out
+  // and the account-suspended message is shown instead of any redirect.
+  const [suspended, setSuspended] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setSuspended(false);
     setLoading(true);
 
     try {
@@ -51,9 +55,19 @@ export default function LoginPage() {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, is_suspended")
           .eq("id", user.id)
           .single();
+
+        // SUSPENDED MEMBER: block normal access with a clear message.
+        // Account status is independent of deposits/receipts — the check
+        // looks ONLY at the admin-controlled is_suspended flag. Non-admins
+        // only: Super Admins must keep control access even if flagged.
+        if (profile?.is_suspended && profile.role !== "admin") {
+          await supabase.auth.signOut();
+          setSuspended(true);
+          return;
+        }
 
         if (profile?.role === "admin") {
           router.push("/admin");
@@ -89,6 +103,22 @@ export default function LoginPage() {
         </div>
 
         <GlassPanel className="p-6 md:p-8">
+          {suspended ? (
+            <div className="flex flex-col items-center gap-4 text-center py-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-error/10 border border-error/30">
+                <ShieldAlert className="h-8 w-8 text-error" />
+              </div>
+              <h2 className="text-title-md font-bold text-error">
+                {t("accountSuspendedTitle")}
+              </h2>
+              <p className="text-sm text-on-surface-variant leading-relaxed max-w-sm">
+                {t("accountSuspendedMessage")}
+              </p>
+              <p className="text-xs text-on-surface-variant/60">
+                {t("accountSuspendedContact")}
+              </p>
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="mb-1 block text-label-md text-on-surface-variant">
@@ -141,6 +171,7 @@ export default function LoginPage() {
               {loading ? t("loggingIn") : t("login")}
             </GlowButton>
           </form>
+          )}
 
           <div className="mt-6 flex items-start gap-2 text-on-surface-variant opacity-75">
             <ShieldCheck className="w-4 h-4 mt-0.5" />

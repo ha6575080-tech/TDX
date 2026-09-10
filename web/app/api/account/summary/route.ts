@@ -22,15 +22,33 @@ export async function GET() {
   const userId = user.id;
   const supabase = await createClient();
 
-  const [profileRes, depositsRes, profitsRes, withdrawalsRes, returnsRes, upgradesRes] =
+  // SUSPENSION GATE (server-side, not UI): a suspended member may not
+  // receive their financial summary — this is the data source the member
+  // dashboard renders, so the dashboard is blocked at the API layer even if
+  // the UI guard were bypassed. The member is NOT deleted and no financial
+  // record is touched; admin access to the records is unaffected (admin
+  // routes use the service role).
+  const profileRes = await supabase
+    .from("profiles")
+    .select(
+      "username, full_name, mobile_number, referral_bonus, total_deductions, package_id, profit_activation_date, is_active, is_suspended, investment_amount"
+    )
+    .eq("id", userId)
+    .single();
+
+  if (profileRes.error) {
+    return internalError("account/summary", profileRes.error);
+  }
+
+  if (profileRes.data?.is_suspended) {
+    return NextResponse.json(
+      { error: "account_suspended" },
+      { status: 403 }
+    );
+  }
+
+  const [depositsRes, profitsRes, withdrawalsRes, returnsRes, upgradesRes] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select(
-          "username, full_name, mobile_number, referral_bonus, total_deductions, package_id, profit_activation_date, is_active, is_suspended, investment_amount"
-        )
-        .eq("id", userId)
-        .single(),
       supabase
         .from("deposits")
         .select("amount, status, approved_at, uploaded_at")
@@ -59,10 +77,6 @@ export async function GET() {
         .order("requested_at", { ascending: false })
         .limit(1),
     ]);
-
-  if (profileRes.error) {
-    return internalError("account/summary", profileRes.error);
-  }
 
   const profile = profileRes.data;
   const deposits = depositsRes.data ?? [];

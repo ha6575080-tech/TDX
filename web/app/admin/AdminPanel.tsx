@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useI18n } from "@/lib/i18n";
+import { useI18n, type TranslationKey } from "@/lib/i18n";
 import {
   Activity,
   Gauge as GaugeIcon,
@@ -24,6 +24,10 @@ import {
 import { GlassPanel, FeedItem, Gauge } from "@/components/ui";
 import AdminDropdown from "@/components/UserDropdown";
 import ReceiptGenerator, { type ReceiptData } from "@/components/ReceiptGenerator";
+import {
+  deriveMemberStatus,
+  type MemberStatus,
+} from "@/lib/member-status";
 
 type Tab =
   | "overview"
@@ -62,6 +66,27 @@ interface UserRow {
   profit_activation_date: string | null;
   total_deposited: number;
   total_withdrawn: number;
+}
+
+// One row from the admin-only member-status audit trail.
+interface StatusChangeRow {
+  id: string;
+  previous_status: MemberStatus;
+  new_status: MemberStatus;
+  changed_by: string;
+  changed_by_name: string;
+  changed_by_username: string;
+  reason: string | null;
+  created_at: string;
+}
+
+// The three display labels shared by badges, buttons and modals.
+function statusLabel(t: (k: TranslationKey) => string, s: MemberStatus): string {
+  return s === "active"
+    ? t("active")
+    : s === "inactive"
+    ? t("inactive")
+    : t("suspended");
 }
 
 interface DepositRow {
@@ -307,6 +332,17 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  // Super Admin member-status control: pending change awaiting confirmation
+  // (Suspend / Deactivate ask for confirmation; Activate applies directly).
+  const [statusPending, setStatusPending] = useState<{
+    user: UserRow;
+    target: MemberStatus;
+  } | null>(null);
+  const [statusReason, setStatusReason] = useState("");
+  const [statusBusy, setStatusBusy] = useState(false);
+  // Audit trail viewer for a single member (admin-only).
+  const [statusHistoryUser, setStatusHistoryUser] = useState<UserRow | null>(null);
+  const [statusHistory, setStatusHistory] = useState<StatusChangeRow[] | null>(null);
   // Per-pending-withdrawal Super Admin rate selection (7/8/9/10).
   const [rateSelections, setRateSelections] = useState<Record<string, number>>(
     {}
@@ -424,28 +460,98 @@ export default function AdminPanel() {
     if (res.ok) setChatThread(data.messages ?? []);
   }, []);
 
-  const toggleSuspend = useCallback(
-    async (u: UserRow) => {
-      const res = await fetch("/api/admin/users", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: u.id, action: "toggle_suspend" }),
-      });
-      const data = await res.json();
+  // Load the member's status-change audit trail (admin-only endpoint).
+  const loadStatusHistory = useCallback(async (u: UserRow) => {
+    setStatusHistoryUser(u);
+    setStatusHistory(null);
+    try {
+      const res = await fetch(`/api/admin/users/${u.id}/status-history`);
       if (!res.ok) {
-        setError(data.error ?? "Failed to toggle suspension");
+        setStatusHistory([]);
         return;
       }
-      setUsers((prev) =>
-        prev.map((x) =>
-          x.id === u.id ? { ...x, is_suspended: data.is_suspended } : x
-        )
-      );
-      setActionMsg(
-        `User ${u.full_name || u.username} ${data.is_suspended ? "suspended" : "activated"}.`
-      );
+      const data = await res.json();
+      setStatusHistory(data.changes ?? []);
+    } catch {
+      setStatusHistory([]);
+    }
+  }, []);
+
+  const openStatusHistory = useCallback(
+    (u: UserRow) => {
+      loadStatusHistory(u);
     },
-    []
+    [loadStatusHistory]
+  );
+
+  // Apply a member status change through the protected admin endpoint.
+  // The server validates the member id, the status, AND the admin
+  // authorization, then atomically updates the existing is_active /
+  // is_suspended fields and writes the audit row. The UI then refreshes the
+  // row from the AUTHORITATIVE server flags (suspension preserves
+  // is_active, so we never assume the new flags locally).
+  const applyStatus = useCallback(
+    async (u: UserRow, target: MemberStatus, reason?: string) => {
+      setStatusBusy(true);
+      setError(null);
+      try {
+        const res = await fetch("/api/admin/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: u.id,
+            action: "set_status",
+            status: target,
+            reason: reason?.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data.error ?? "Failed to change member status");
+          return;
+        }
+        setUsers((prev) =>
+          prev.map((x) =>
+            x.id === u.id
+              ? {
+                  ...x,
+                  is_active: data.is_active ?? x.is_active,
+                  is_suspended: data.is_suspended ?? x.is_suspended,
+                }
+              : x
+          )
+        );
+        setActionMsg(
+          `User ${u.full_name || u.username} is now ${statusLabel(t, target)}.`
+        );
+        // Refresh the audit view if it is open for this member.
+        if (statusHistoryUser?.id === u.id) {
+          loadStatusHistory(u);
+        }
+      } catch {
+        setError("Failed to change member status");
+      } finally {
+        setStatusBusy(false);
+        setStatusPending(null);
+      }
+    },
+    [t, statusHistoryUser, loadStatusHistory]
+  );
+
+  // Entry point from the row buttons. Activate applies immediately;
+  // Suspend / Deactivate (Inactive) ask for confirmation first, per policy.
+  const requestStatus = useCallback(
+    (u: UserRow, target: MemberStatus) => {
+      const current = deriveMemberStatus(u);
+      if (current === target) return;
+      if (target === "active") {
+        applyStatus(u, "active");
+      } else {
+        setStatusReason("");
+        setStatusPending({ user: u, target });
+      }
+    },
+    [applyStatus]
   );
 
   const resetPassword = useCallback(
@@ -929,25 +1035,63 @@ export default function AdminPanel() {
                       <td className="px-4 py-3 text-primary">{fmtPKR(u.total_deposited)}</td>
                       <td className="px-4 py-3">{fmtPKR(u.total_withdrawn)}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                          u.is_suspended
-                            ? "bg-error/15 text-error border border-error/30"
-                            : u.is_active
-                            ? "bg-primary/15 text-primary border border-primary/30"
-                            : "bg-surface-bright text-on-surface-variant"
-                        }`}>
-                          {u.is_suspended ? t("suspended") : u.is_active ? t("active") : t("inactive")}
-                        </span>
+                        {/* Current status — click to open the audit trail */}
+                        <button
+                          type="button"
+                          onClick={() => openStatusHistory(u)}
+                          title={`${t("statusHistory")} — ${t("view")}`}
+                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold cursor-pointer transition-transform hover:scale-105 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                            deriveMemberStatus(u) === "suspended"
+                              ? "bg-error/15 text-error border border-error/40"
+                              : deriveMemberStatus(u) === "active"
+                              ? "bg-primary/15 text-primary border border-primary/40"
+                              : "bg-surface-bright text-on-surface-variant border border-outline-variant/60"
+                          }`}
+                        >
+                          {statusLabel(t, deriveMemberStatus(u))}
+                        </button>
                       </td>
                       <td className="px-4 py-3">{fmtDate(u.created_at)}</td>
                       <td className="px-4 py-3">
-                        <div className="flex gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           <button onClick={() => printUser(u)} title={t("printPdf")} aria-label={`Print details for ${u.full_name || u.username || "user"}`} className="h-8 rounded bg-surface-bright px-2.5 text-xs font-semibold text-on-surface hover:bg-surface-container-high">
                             <Printer className="w-3 h-3" />
                           </button>
-                          <button onClick={() => toggleSuspend(u)} className="h-8 rounded bg-surface-bright px-3 text-xs font-semibold text-on-surface hover:bg-surface-container-high">
-                            {u.is_suspended ? t("activate") : t("suspend")}
-                          </button>
+                          {/* Status controls: Active / Inactive / Suspended.
+                              The CURRENT status is highlighted + disabled;
+                              Suspend/Inactive ask for confirmation; Activate
+                              applies immediately. Works for ANY member
+                              regardless of deposits or receipts. */}
+                          {(["active", "inactive", "suspended"] as const).map((s) => {
+                            const isCurrent = deriveMemberStatus(u) === s;
+                            return (
+                              <button
+                                key={s}
+                                type="button"
+                                disabled={isCurrent || statusBusy}
+                                onClick={() => requestStatus(u, s)}
+                                title={
+                                  isCurrent
+                                    ? `${t("status")}: ${statusLabel(t, s)}`
+                                    : `${t("confirmStatusTo")} ${statusLabel(t, s)}?`
+                                }
+                                aria-pressed={isCurrent}
+                                className={`h-8 rounded px-2.5 text-xs font-semibold transition-colors disabled:cursor-default ${
+                                  isCurrent
+                                    ? s === "suspended"
+                                      ? "bg-error/20 text-error border border-error/50"
+                                      : s === "active"
+                                      ? "bg-primary/20 text-primary border border-primary/50"
+                                      : "bg-surface-bright text-on-surface border border-outline-variant/70"
+                                    : s === "suspended"
+                                    ? "bg-surface-bright text-error border border-error/30 hover:bg-error/10"
+                                    : "bg-surface-bright text-on-surface-variant border border-outline-variant/40 hover:bg-surface-container-high"
+                                }`}
+                              >
+                                {statusLabel(t, s)}
+                              </button>
+                            );
+                          })}
                           <button onClick={() => resetPassword(u)} className="h-8 rounded bg-secondary/10 px-3 text-xs font-semibold text-secondary border border-secondary/30 hover:bg-secondary/20">
                             <KeyRound className="w-3 h-3 mr-1 inline" />
                             {t("resetPassword")}
@@ -1719,6 +1863,177 @@ export default function AdminPanel() {
             {receiptData && (
               <div className="pt-2 border-t border-outline-variant/30">
                 <ReceiptGenerator data={receiptData} />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Status change CONFIRMATION modal — Suspend / Deactivate only */}
+      {statusPending && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm overflow-y-auto p-6"
+          onClick={() => !statusBusy && setStatusPending(null)}
+        >
+          <div
+            className="glass-panel p-6 max-w-md w-full my-8 mx-auto space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-on-surface">
+                {t("confirmStatusTo")}{" "}
+                <span
+                  className={
+                    statusPending.target === "suspended" ? "text-error" : "text-on-surface"
+                  }
+                >
+                  {statusLabel(t, statusPending.target)}
+                </span>
+                ?
+              </h2>
+              <button
+                onClick={() => setStatusPending(null)}
+                disabled={statusBusy}
+                className="h-9 rounded-lg px-3 text-sm font-semibold bg-surface-bright hover:bg-surface-container-high disabled:opacity-50"
+                aria-label={t("close")}
+              >
+                <X className="w-4 h-4 inline" />
+              </button>
+            </div>
+
+            <p className="text-sm text-on-surface">
+              {statusPending.user.full_name || statusPending.user.username}{" "}
+              <span className="text-on-surface-variant">
+                @{statusPending.user.username || "—"}
+              </span>
+            </p>
+
+            <div
+              className={`rounded-lg border px-4 py-3 text-sm ${
+                statusPending.target === "suspended"
+                  ? "bg-error/10 border-error/30 text-on-surface"
+                  : "bg-surface-container-low border-outline-variant/40 text-on-surface-variant"
+              }`}
+            >
+              {statusPending.target === "suspended"
+                ? t("suspendEffect")
+                : t("deactivateEffect")}
+            </div>
+
+            <div>
+              <label className="mb-1 block text-label-md text-on-surface-variant">
+                {t("reason")}{" "}
+                <span className="text-on-surface-variant/60">{t("optional")}</span>
+              </label>
+              <textarea
+                rows={2}
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                maxLength={500}
+                className="w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary"
+              />
+            </div>
+
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                onClick={() => setStatusPending(null)}
+                disabled={statusBusy}
+                className="h-10 rounded-lg bg-surface-bright px-5 text-sm font-semibold text-on-surface hover:bg-surface-container-high disabled:opacity-50"
+              >
+                {t("cancel")}
+              </button>
+              <button
+                onClick={() =>
+                  applyStatus(statusPending.user, statusPending.target, statusReason)
+                }
+                disabled={statusBusy}
+                className={`h-10 rounded-lg px-5 text-sm font-bold disabled:opacity-50 ${
+                  statusPending.target === "suspended"
+                    ? "bg-error text-white hover:bg-error/80"
+                    : "bg-on-surface text-base hover:opacity-80"
+                }`}
+              >
+                {statusBusy ? t("processing") : t("confirm")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Member status-history (AUDIT TRAIL) modal — admin only */}
+      {statusHistoryUser && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm overflow-y-auto p-6"
+          onClick={() => setStatusHistoryUser(null)}
+        >
+          <div
+            className="glass-panel p-6 max-w-2xl w-full my-8 mx-auto space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-bold text-on-surface">
+                {t("statusHistory")} — {statusHistoryUser.full_name || statusHistoryUser.username}
+              </h2>
+              <button
+                onClick={() => setStatusHistoryUser(null)}
+                className="h-9 rounded-lg px-3 text-sm font-semibold bg-surface-bright hover:bg-surface-container-high"
+                aria-label={t("close")}
+              >
+                <X className="w-4 h-4 inline" />
+              </button>
+            </div>
+
+            {statusHistory === null ? (
+              <p className="text-sm text-on-surface-variant">Loading…</p>
+            ) : statusHistory.length === 0 ? (
+              <p className="text-sm text-on-surface-variant">
+                {t("noStatusChanges")}
+              </p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-sm">
+                  <thead>
+                    <tr className="border-b border-outline-variant/30 text-left text-xs uppercase tracking-wide text-on-surface-variant">
+                      <th className="px-3 py-2">{t("status")}</th>
+                      <th className="px-3 py-2">{t("changedBy")}</th>
+                      <th className="px-3 py-2">{t("reason")}</th>
+                      <th className="px-3 py-2">{t("changedAt")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {statusHistory.map((c) => (
+                      <tr key={c.id} className="border-b border-outline-variant/10">
+                        <td className="px-3 py-2 font-semibold">
+                          {statusLabel(t, c.previous_status)} →{" "}
+                          <span
+                            className={
+                              c.new_status === "suspended"
+                                ? "text-error"
+                                : c.new_status === "active"
+                                ? "text-primary"
+                                : ""
+                            }
+                          >
+                            {statusLabel(t, c.new_status)}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2">
+                          {c.changed_by_name || "Admin"}
+                          {c.changed_by_username ? (
+                            <span className="text-xs text-on-surface-variant">
+                              {" "}
+                              @{c.changed_by_username}
+                            </span>
+                          ) : null}
+                        </td>
+                        <td className="px-3 py-2 text-on-surface-variant">
+                          {c.reason ?? "—"}
+                        </td>
+                        <td className="px-3 py-2">{fmtDate(c.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

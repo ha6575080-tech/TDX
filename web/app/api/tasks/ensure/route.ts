@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 import { ensureAndLoadTasks } from "@/lib/tasks";
 import { requireUser } from "@/lib/auth";
 import { logServerError } from "@/lib/api-errors";
@@ -6,6 +7,19 @@ import { logServerError } from "@/lib/api-errors";
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
+
+  // SUSPENSION GATE: task creation / deduction application have financial
+  // side effects (total_deductions) — a suspended member's account must not
+  // be altered behind their back while access is blocked.
+  const guard = await createServiceRoleClient();
+  const { data: guardProfile } = await guard
+    .from("profiles")
+    .select("is_suspended")
+    .eq("id", user.id)
+    .single();
+  if (guardProfile?.is_suspended) {
+    return NextResponse.json({ error: "account_suspended" }, { status: 403 });
+  }
 
   let body: { userId?: string };
   try {

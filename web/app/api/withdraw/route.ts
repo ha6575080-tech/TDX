@@ -91,7 +91,7 @@ export async function POST() {
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select(
-      "full_name, address, mobile_number, account_number, payment_method"
+      "full_name, address, mobile_number, account_number, payment_method, is_suspended"
     )
     .eq("id", userId)
     .single();
@@ -100,6 +100,15 @@ export async function POST() {
     return NextResponse.json(
       { error: "Profile not found" },
       { status: 404 }
+    );
+  }
+
+  // SUSPENSION GATE: a suspended member cannot request withdrawals.
+  // (No calculation below is affected — this is pure access control.)
+  if (profile.is_suspended) {
+    return NextResponse.json(
+      { error: "account_suspended" },
+      { status: 403 }
     );
   }
 
