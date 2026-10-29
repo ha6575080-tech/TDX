@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -14,7 +15,12 @@ export async function POST(req: Request) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const body = await req.json();
+  let body: { deposit_id?: string; percentage?: number };
+  try {
+    body = await readJsonObject(req);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { deposit_id, percentage } = body as {
     deposit_id: string;
     percentage: number;

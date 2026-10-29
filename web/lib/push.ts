@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { isTrustedPushEndpoint } from "@/lib/request-validation";
 
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY ?? "";
@@ -39,8 +40,12 @@ export async function sendPushToSubscriptions(
   let sent = 0;
   let failed = 0;
   for (const s of subs) {
+    if (!isTrustedPushEndpoint(s.endpoint)) {
+      failed += 1;
+      continue;
+    }
     try {
-      await webpush.sendNotification(buildPushSubscription(s), payload);
+      await webpush.sendNotification(buildPushSubscription(s), payload, { timeout: 10_000 });
       sent += 1;
     } catch {
       // subscription expired / unreachable — ignore

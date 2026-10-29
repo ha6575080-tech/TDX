@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import ReceiptGenerator, { type ReceiptData } from "@/components/ReceiptGenerator";
 
@@ -17,22 +17,25 @@ export default function AdminReceiptsPage() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
+  const loadVersion = useRef(0);
 
   const loadRecords = useCallback(async (tp: "deposit" | "payout") => {
+    const version = ++loadVersion.current;
     setLoading(true);
+    setRows([]);
     setErr(null);
     setSelectedId("");
     setReceipt(null);
     try {
-      const endpoint = tp === "deposit" ? "/api/admin/deposits" : "/api/admin/payouts";
-      const r = await fetch(endpoint);
+      const r = await fetch(`/api/admin/receipt/records?type=${tp}`, { signal: AbortSignal.timeout(15000) });
       const json = await r.json();
+      if (version !== loadVersion.current) return;
       if (!r.ok) {
         setErr(json.error || t("forbidden"));
         setRows([]);
         return;
       }
-      const list: unknown[] = tp === "deposit" ? (json.deposits ?? []) : (json.payouts ?? []);
+      const list: unknown[] = json.records ?? [];
       const mapped: PickRow[] = (list as Array<Record<string, unknown>>).map((x) => ({
         id: String(x.id),
         label:
@@ -42,15 +45,17 @@ export default function AdminReceiptsPage() {
       }));
       setRows(mapped);
     } catch {
-      setErr(t("forbidden"));
+      if (version !== loadVersion.current) return;
+      setErr(lang === "ur" ? "ریکارڈ لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔" : "Could not load records. Please try again.");
       setRows([]);
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
-  }, [t]);
+  }, [t, lang]);
 
   useEffect(() => {
     loadRecords(type);
+    return () => { loadVersion.current += 1; };
   }, [type, loadRecords]);
 
   const generate = async () => {
@@ -63,6 +68,7 @@ export default function AdminReceiptsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ type, id: selectedId, language: lang }),
+        signal: AbortSignal.timeout(15000),
       });
       const json = await r.json();
       if (!r.ok || !json.ok) {
@@ -115,7 +121,12 @@ export default function AdminReceiptsPage() {
           </select>
         </label>
 
-        {err && <p className="text-sm text-red-400">{err}</p>}
+        {err && <div role="alert" className="space-y-2">
+          <p className="text-sm text-red-400">{err}</p>
+          <button type="button" onClick={() => loadRecords(type)} disabled={loading} className="text-sm underline">
+            {lang === "ur" ? "دوبارہ کوشش کریں" : "Try again"}
+          </button>
+        </div>}
         {!err && !loading && rows.length === 0 && (
           <p className="text-sm text-white/50">{t("noDataForPeriod")}</p>
         )}

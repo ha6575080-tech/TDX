@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
@@ -34,7 +35,7 @@ export async function POST(req: Request) {
 
   let body: { user_id?: string; message?: string; language?: string };
   try {
-    body = await req.json();
+    body = await readJsonObject(req);
   } catch {
     return NextResponse.json({ error: "invalid request body" }, { status: 400 });
   }
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
 
   // Allow the authenticated user id to be omitted (the server derives it),
   // but it must match if provided.
-  if (!message || typeof message !== "string" || message.trim().length === 0) {
+  if (!message || typeof message !== "string" || message.trim().length === 0 || message.length > 4000) {
     return NextResponse.json({ error: "message required" }, { status: 400 });
   }
 
@@ -99,7 +100,7 @@ export async function POST(req: Request) {
     // a failure here should not block the response.
     try {
       await getSupabaseAdmin().from("messages").insert({
-        user_id,
+        user_id: userId,
         message: sysMsg,
         message_ur: language === "ur" ? sysMsg : null,
         sender: "system",
@@ -144,7 +145,7 @@ export async function POST(req: Request) {
 
     if (aiReply) {
       const aiMsg: Record<string, unknown> = {
-        user_id,
+        user_id: userId,
         message: aiReply,
         message_ur: language === "ur" ? aiReply : null,
         sender: "ai",
@@ -166,7 +167,7 @@ export async function POST(req: Request) {
   // Best-effort — always return a response even if this insert fails.
   try {
     await getSupabaseAdmin().from("messages").insert({
-      user_id,
+      user_id: userId,
       message: fallbackMsg,
       message_ur: language === "ur" ? fallbackMsg : null,
       sender: "system",

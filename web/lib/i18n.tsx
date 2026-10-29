@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 export type Lang = "en" | "ur";
 
@@ -789,7 +789,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = lang;
   }, [dir, lang]);
 
-  const t = (key: TranslationKey) => {
+  const t = useCallback((key: TranslationKey) => {
     // Fall back to English for missing keys.
     const dict = translations[lang] as Record<
       string,
@@ -801,7 +801,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     >;
     const val = dict[key] ?? en[key];
     return typeof val === "function" ? (val as () => string)() : (val as string);
-  };
+  }, [lang]);
 
   return (
     <I18nContext.Provider value={{ lang, setLang, t, dir }}>

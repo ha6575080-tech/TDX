@@ -1,6 +1,8 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { internalError } from "@/lib/api-errors";
 
 // Schema notes:
 // - deposits.uploaded_at is the creation timestamp (no created_at).
@@ -16,14 +18,19 @@ export async function POST(req: Request) {
   const { error } = await requireAdmin();
   if (error) return error;
 
-  const body = await req.json();
+  let body: { type?: string; id?: string; language?: string };
+  try {
+    body = await readJsonObject(req);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const { type, id, language } = body as {
     type: "deposit" | "payout";
     id: string;
     language: "en" | "ur";
   };
 
-  if (!type || !id) {
+  if (!["deposit", "payout"].includes(type) || typeof id !== "string" || !id) {
     return NextResponse.json({ error: "type and id required" }, { status: 400 });
   }
 
@@ -43,11 +50,12 @@ export async function POST(req: Request) {
 
   // 2. Fetch the profile explicitly using the record's trusted user_id.
   const userId = (record as { user_id: string }).user_id;
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("full_name, mobile_number, username, city")
     .eq("id", userId)
     .single();
+  if (profileError) return internalError("admin/receipt/profile", profileError);
 
   const rec = record as Record<string, unknown>;
   const prof = profile ?? null;

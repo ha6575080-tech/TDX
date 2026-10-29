@@ -1,3 +1,4 @@
+import { readJsonObject, isOwnedObjectPath } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
@@ -231,7 +232,7 @@ export async function POST(request: Request) {
 
   let body: { depositId?: string; userId?: string };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -264,6 +265,9 @@ export async function POST(request: Request) {
   }
 
   const paymentMethod = (deposit as any).payment_method ?? "online_transfer";
+  if (paymentMethod === "online_transfer" && !isOwnedObjectPath(deposit.receipt_image_url, userId)) {
+    return NextResponse.json({ error: "A receipt from your own account is required" }, { status: 400 });
+  }
 
   // Fetch profile for notifications/emails
   const { data: profile } = await supabase

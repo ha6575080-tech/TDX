@@ -1,3 +1,4 @@
+import { readJsonObject, isOwnedObjectPath } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
@@ -9,7 +10,7 @@ export async function POST(request: Request) {
 
   let body: { taskId?: string; userId?: string; path?: string };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   // private object, path traversal ("../", nested segments), backslash
   // separators, and empty/odd segment names. (Uploads are independently
   // owner-scoped by storage RLS.)
-  if (typeof path !== "string" || !path.startsWith(`${userId}/`)) {
+  if (!isOwnedObjectPath(path, userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const rel = path.slice(userId.length + 1);

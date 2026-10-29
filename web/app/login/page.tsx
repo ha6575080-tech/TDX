@@ -121,10 +121,13 @@ export default function LoginPage() {
           ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="mb-1 block text-label-md text-on-surface-variant">
+              <label htmlFor="login-identifier" className="mb-1 block text-label-md text-on-surface-variant">
                 {t("emailOrMobile")}
               </label>
               <input
+                id="login-identifier"
+                autoComplete="username"
+                required
                 type="text"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
@@ -134,11 +137,14 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="mb-1 block text-label-md text-on-surface-variant">
+              <label htmlFor="login-password" className="mb-1 block text-label-md text-on-surface-variant">
                 {t("password")}
               </label>
               <div className="relative">
                 <input
+                  id="login-password"
+                  autoComplete="current-password"
+                  required
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -157,7 +163,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
+              <div role="alert" className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
                 {error}
               </div>
             )}

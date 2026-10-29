@@ -1,7 +1,9 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { internalError } from "@/lib/api-errors";
+import { isTrustedPushEndpoint } from "@/lib/request-validation";
 
 interface PushSub {
   endpoint?: string;
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
 
   let body: { subscription?: unknown };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -36,6 +38,11 @@ export async function POST(request: Request) {
       },
       { status: 400 }
     );
+  }
+  if (!isTrustedPushEndpoint(sub.endpoint) ||
+      typeof sub.keys.p256dh !== "string" || !/^[A-Za-z0-9_-]{87}={0,2}$/.test(sub.keys.p256dh) ||
+      typeof sub.keys.auth !== "string" || !/^[A-Za-z0-9_-]{22}={0,2}$/.test(sub.keys.auth)) {
+    return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
   }
 
   const supabase = await createServiceRoleClient();

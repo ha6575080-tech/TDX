@@ -13,7 +13,7 @@ function envIsConfigured(): boolean {
   return urlOk && keyOk;
 }
 
-const PROTECTED_PATHS = ["/dashboard", "/admin", "/statistics", "/tasks"];
+const PROTECTED_PATHS = ["/dashboard", "/admin", "/statistics", "/tasks", "/activity", "/agents", "/chat", "/goals", "/invoice", "/profile", "/settings", "/simulator", "/statement"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -68,7 +68,9 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+    return response;
   }
 
   // If there is a user, but no session, refresh the session via the cookie.

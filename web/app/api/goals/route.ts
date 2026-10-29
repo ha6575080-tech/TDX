@@ -1,5 +1,6 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { extractErrorInfo } from "@/lib/errors";
 import { computeSummaryTotals } from "@/lib/account-summary";
@@ -64,6 +65,8 @@ export async function GET() {
   if (profileRes.error) {
     return internalError("goals", profileRes.error);
   }
+  const summaryError = depositsRes.error ?? profitsRes.error ?? withdrawalsRes.error;
+  if (summaryError) return internalError("goals", summaryError);
 
   // Authoritative progress basis — same numbers as the dashboard summary.
   const summary = computeSummaryTotals(
@@ -134,7 +137,8 @@ export async function GET() {
     });
     // Best-effort — never block the goals response on notification inserts,
     // but log failures so silent notification loss is visible to operators.
-    const { error: milestoneNotifError } = await supabase
+    const notificationClient = await createServiceRoleClient();
+    const { error: milestoneNotifError } = await notificationClient
       .from("notifications")
       .insert(notifRows);
     if (milestoneNotifError) {
@@ -164,7 +168,7 @@ export async function POST(request: Request) {
 
   let body: { title?: unknown; target_amount?: unknown; target_date?: unknown; description?: unknown };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }

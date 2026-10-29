@@ -1,8 +1,10 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireUser } from "@/lib/auth";
 import { internalError, logServerError } from "@/lib/api-errors";
 import { isValidDepositAmount } from "@/lib/investment";
+import { randomBytes } from "node:crypto";
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,7 +28,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Only agents can onboard members" }, { status: 403 });
   }
 
-  const body = await req.json();
+  let body: Record<string, string>;
+  try {
+    body = await readJsonObject(req);
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
   const {
     full_name, mobile_number, whatsapp_number,
     address, city, invested_amount, picture_url,
@@ -44,7 +51,7 @@ export async function POST(req: Request) {
 
   // Create a new user account for the member
   const tempEmail = `member_${mobile_number}@tdx-auto.com`;
-  const tempPassword = Math.random().toString(36).slice(-10) + "A1!";
+  const tempPassword = randomBytes(24).toString("base64url") + "A1!";
 
   const { data: authData, error: signUpErr } = await getSupabaseAdmin().auth.admin.createUser({
     email: tempEmail,
