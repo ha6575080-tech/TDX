@@ -199,7 +199,7 @@ async function notifyAdmins(
   try {
     const { data: admins } = await supabase.from("profiles").select("id").eq("role", "admin");
     if (!admins || admins.length === 0) return;
-    const rows = admins.map((a: any) => ({
+    const rows = admins.map((a) => ({
       user_id: a.id,
       title,
       title_ur: titleUr,
@@ -259,12 +259,12 @@ export async function POST(request: Request) {
   }
 
   // Server-side amount validation (defense in depth — DB CHECK is final)
-  const rawAmount = Number((deposit as any).amount);
+  const rawAmount = Number(deposit.amount);
   if (!isValidDepositAmount(rawAmount)) {
     return NextResponse.json({ error: "Deposit amount must be between 5000 and 2000000" }, { status: 400 });
   }
 
-  const paymentMethod = (deposit as any).payment_method ?? "online_transfer";
+  const paymentMethod = deposit.payment_method ?? "online_transfer";
   if (paymentMethod === "online_transfer" && !isOwnedObjectPath(deposit.receipt_image_url, userId)) {
     return NextResponse.json({ error: "A receipt from your own account is required" }, { status: 400 });
   }
@@ -286,8 +286,8 @@ export async function POST(request: Request) {
     let base64Image = "";
     let mimeType = "image/jpeg";
 
-    if ((deposit as any).receipt_image_url) {
-      const path = (deposit as any).receipt_image_url;
+    if (deposit.receipt_image_url) {
+      const path = deposit.receipt_image_url;
       const { data: fileData, error: fileError } = await supabase.storage.from("receipts").download(path);
 
       if (!fileError && fileData) {
@@ -296,7 +296,7 @@ export async function POST(request: Request) {
         } else {
           const arrayBuffer = await fileData.arrayBuffer();
           base64Image = Buffer.from(arrayBuffer).toString("base64");
-          mimeType = (fileData as any).type || "image/jpeg";
+          mimeType = fileData.type || "image/jpeg";
         }
       }
 
@@ -334,16 +334,16 @@ export async function POST(request: Request) {
   // 3. In-app notification for admins + admin email (both methods)
   await notifyAdmins(supabase, {
     memberName: memberDisplay,
-    amount: (deposit as any).amount,
+    amount: deposit.amount,
     paymentMethod,
-    cashAgentName: (deposit as any).cash_agent_name ?? "Shakeela",
-    cashPaymentDate: (deposit as any).cash_payment_date,
+    cashAgentName: deposit.cash_agent_name ?? "Shakeela",
+    cashPaymentDate: deposit.cash_payment_date,
     receiptUrl: receiptSignedUrl,
   });
 
   let packageName = "Investment";
-  if ((deposit as any).package_id) {
-    const { data: pkg } = await supabase.from("packages").select("package_name").eq("id", (deposit as any).package_id).single();
+  if (deposit.package_id) {
+    const { data: pkg } = await supabase.from("packages").select("package_name").eq("id", deposit.package_id).single();
     packageName = pkg?.package_name ?? "Investment";
   }
 
@@ -351,10 +351,10 @@ export async function POST(request: Request) {
     fullName: profile?.full_name ?? "Unknown",
     username: profile?.username ?? "Unknown",
     mobile: profile?.mobile_number ?? "Unknown",
-    amount: (deposit as any).amount,
+    amount: deposit.amount,
     paymentMethod,
-    cashAgentName: (deposit as any).cash_agent_name ?? null,
-    cashPaymentDate: (deposit as any).cash_payment_date ?? null,
+    cashAgentName: deposit.cash_agent_name ?? null,
+    cashPaymentDate: deposit.cash_payment_date ?? null,
     verdict: analysis.verdict,
     confidence: analysis.confidence,
     receiptUrl: receiptSignedUrl,

@@ -117,11 +117,6 @@ function Control({
   const [text, setText] = useState(fmtNumber(value));
   const [focused, setFocused] = useState(false);
 
-  // Sync the text box when the value changes externally (e.g., slider drag).
-  useEffect(() => {
-    if (!focused) setText(fmtNumber(value));
-  }, [value, focused]);
-
   const commit = (raw: string) => {
     setText(raw);
     const n = Number(raw);
@@ -146,9 +141,9 @@ function Control({
           type="text"
           inputMode="numeric"
           aria-label={label}
-          value={text}
+          value={focused ? text : fmtNumber(value)}
           onChange={(e) => commit(e.target.value)}
-          onFocus={() => setFocused(true)}
+          onFocus={() => { setText(fmtNumber(value)); setFocused(true); }}
           onBlur={() => setFocused(false)}
           className={`h-10 w-full rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 text-sm text-on-surface outline-none focus:border-primary ${
             prefix ? "pl-9" : ""

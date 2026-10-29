@@ -21,7 +21,7 @@ export default function SettingsPage() {
         return;
       }
       const { data } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-      setRole((data as any)?.role ?? "user");
+      setRole(data?.role ?? "user");
       setLoading(false);
     }
     load();

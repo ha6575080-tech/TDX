@@ -62,7 +62,7 @@ export default async function InvoicePage({
   const { data: deposit, error } = await serviceRole
     .from("deposits")
     .select(
-      "id, user_id, amount, uploaded_at, approved_at, profiles(full_name, city, mobile_number, payment_method, address)"
+      "id, user_id, amount, uploaded_at, approved_at"
     )
     .eq("id", depositId)
     .single();
@@ -83,13 +83,13 @@ export default async function InvoicePage({
     );
   }
 
-  const isOwner = (deposit as any).user_id === user.id;
+  const isOwner = deposit.user_id === user.id;
   const isAdmin = myProfile?.role === "admin";
   if (!isOwner && !isAdmin) {
     redirect("/dashboard");
   }
 
-  const profile = (deposit as any).profiles;
+  const { data: profile } = await serviceRole.from("profiles").select("full_name, city, mobile_number, payment_method, address").eq("id", deposit.user_id).single();
 
   const profitStart = deposit.approved_at ?? deposit.uploaded_at;
   const profitEnd = new Date(

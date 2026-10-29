@@ -126,7 +126,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("is_active", true);
 
-    const rows = (profiles ?? []).map((p: any) => ({
+    const rows = (profiles ?? []).map((p) => ({
       user_id: p.id,
       title,
       message,

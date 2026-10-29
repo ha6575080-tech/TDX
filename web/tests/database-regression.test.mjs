@@ -63,9 +63,8 @@ test("financial migration against a local copy of the production schema", async 
       assert.equal(result.rows.length, 1);
       await db.exec("delete from deposits;");
     });
-    await db.exec(await read("supabase/migrations/20260907000001_dual_deposit_methods.sql"));
-    await db.exec(await read("supabase/migrations/20260908000001_payout_reminder_deliveries_and_fix_42703.sql"));
-    const migration = await read("supabase/migrations/20261029095946_harden_financial_access_and_rpc_guards.sql");
+    await db.exec(await read("supabase/migrations/20261029102849_restore_required_app_schema.sql"));
+    const migration = await read("supabase/migrations/20261029103017_financial_access_after_schema_repair.sql");
     await db.exec(migration);
     await t.test("migration can be reapplied without changing data", async () => { await db.exec(migration); });
     await t.test("legitimate owner pending deposit succeeds", async () => {

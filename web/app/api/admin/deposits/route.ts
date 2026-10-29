@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -100,8 +101,8 @@ export async function GET() {
     return internalError("admin/deposits", depositsError);
   }
 
-  const userIds = [...new Set((deposits ?? []).map((d: any) => d.user_id))];
-  const profileMap = new Map<string, any>();
+  const userIds = [...new Set((deposits ?? []).map((d) => d.user_id))];
+  const profileMap = new Map<string, { full_name: string | null; username: string | null; mobile_number: string | null; email: string | null }>();
   if (userIds.length > 0) {
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
@@ -115,7 +116,7 @@ export async function GET() {
     }
   }
 
-  const parsed = (deposits ?? []).map((d: any) => {
+  const parsed = (deposits ?? []).map((d) => {
     const profile = profileMap.get(d.user_id);
     return {
       id: d.id,
@@ -140,8 +141,8 @@ export async function GET() {
       username: profile?.username ?? "Unknown",
       mobile: profile?.mobile_number ?? "Unknown",
       email: profile?.email ?? null,
-      packageName: d.packages?.package_name ?? "Investment",
-      monthlyReturnPercent: d.packages?.monthly_return_percent ?? 0,
+      packageName: relatedOne(d.packages)?.package_name ?? "Investment",
+      monthlyReturnPercent: relatedOne(d.packages)?.monthly_return_percent ?? 0,
     };
   });
 
@@ -151,7 +152,7 @@ export async function GET() {
 export async function POST(request: Request) {
   const { error, user: adminUser } = await requireAdmin();
   if (error) return error;
-  const adminUserId = (adminUser as any)?.id ?? null;
+  const adminUserId = adminUser?.id ?? null;
 
   let body: { depositId?: string; action?: "approve" | "reject"; admin_notes?: string; reason?: string };
   try {
@@ -178,10 +179,10 @@ export async function POST(request: Request) {
   }
 
   const userId = deposit.user_id;
-  const paymentMethod = (deposit as any).payment_method ?? "online_transfer";
+  const paymentMethod = deposit.payment_method ?? "online_transfer";
   const methodLabel = paymentMethod === "cash_agent" ? "CASH TO AGENT" : "ONLINE TRANSFER";
-  const cashAgent = (deposit as any).cash_agent_name ?? "Shakeela";
-  const cashDateRaw = (deposit as any).cash_payment_date ?? null;
+  const cashAgent = deposit.cash_agent_name ?? "Shakeela";
+  const cashDateRaw = deposit.cash_payment_date ?? null;
 
   const EXPECTED_STATUS = "pending";
 
@@ -207,7 +208,7 @@ export async function POST(request: Request) {
         invoice_url: invoiceUrl,
         reviewed_at: nowISO,
         reviewed_by: adminUserId,
-      } as any)
+      })
       .eq("id", depositId)
       .eq("status", EXPECTED_STATUS)
       .select("id");
@@ -299,7 +300,7 @@ export async function POST(request: Request) {
   if (action === "reject") {
     const rejectionReason = body.admin_notes ?? body.reason ?? null;
     const nowISO = new Date().toISOString();
-    const updatePayload: any = {
+    const updatePayload = {
       status: "rejected",
       admin_notes: rejectionReason ?? `Rejected — ${methodLabel} verification did not pass`,
       reviewed_at: nowISO,

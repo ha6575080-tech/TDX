@@ -43,7 +43,7 @@ export default function TasksPage() {
   const [missedDays, setMissedDays] = useState(0);
   const [showDeductionPopup, setShowDeductionPopup] = useState(false);
   const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
-  const [allDone, setAllDone] = useState(false);
+  const suggestedComment = COMMENTS[(tasks[0]?.id.charCodeAt(0) ?? 0) % COMMENTS.length];
 
   const loadTasks = useCallback(async () => {
     setLoading(true);
@@ -98,9 +98,7 @@ export default function TasksPage() {
     [todayTasks]
   );
 
-  useEffect(() => {
-    if (todayAllDone) setAllDone(true);
-  }, [todayAllDone]);
+  const allDone = !loading && !error && tasks.length === 0 && userId !== null;
 
   const handleScreenshot = useCallback(
     async (task: PendingTask, file: File) => {
@@ -184,7 +182,7 @@ export default function TasksPage() {
           <p>
             {t("comment")}{" "}
             <span className="font-semibold text-secondary">
-              "{COMMENTS[Math.floor(Math.random() * COMMENTS.length)]}"
+              &ldquo;{suggestedComment}&rdquo;
             </span>
           </p>
         </div>

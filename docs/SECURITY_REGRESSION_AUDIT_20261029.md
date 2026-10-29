@@ -3,6 +3,14 @@
 Repository: `ha6575080-tech/TDX`. Production: `tdx-plum.vercel.app`.
 Supabase: `jgbbifiizezrwvesdisc`. Vercel project: `tdx`.
 
+## Current status
+
+The receipt picker and generator are deployed and were verified in an authenticated
+production admin session. The broader application is **not cleared for launch**.
+The production database security/schema rollout requires an explicit approval
+requested after automatic approval review rejected the reduced, non-backfilling
+changes too. Independent application fixes continue while that answer is pending.
+
 ## Receipt failure reported during the audit
 
 The receipt picker called `/api/admin/deposits`, whose explicit selection includes
@@ -60,18 +68,22 @@ Production deposit range enforcement was restored and verified through
 `pg_get_constraintdef`: amount must be between PKR 5,000 and 2,000,000.
 No historical transaction was edited by that change.
 
-The broader production schema restorations were rejected by automatic approval
-review because they backfill financial dates/rates, alter access controls, and
-rewrite package payment-account details. They remain unapplied. In particular,
-the payout reminder job still requires its missing database columns/tables.
+The original historical schema migrations include financial date/rate backfills
+and payment-account changes. They were not applied. Two new forward migrations
+restore only required schema and access protections while preserving existing
+balances, dates, rates, and payment-account details:
 
-The new forward migration `20261029095946_harden_financial_access_and_rpc_guards.sql`
-removes the legacy bypasses, restricts financial/task/notification writes,
-guards direct financial RPCs against suspension, and fixes the bigint/UUID
-mismatch in withdrawal completion. It has been tested locally and is pending
-production approval. It requires the existing dual-deposit and reminder schema
-migrations first; do not replay the entire historical migration directory into
-the live database. Live migration history is incomplete and must be reconciled.
+- `20261029102849_restore_required_app_schema.sql`
+- `20261029103017_financial_access_after_schema_repair.sql`
+
+These migrations pass local database regression checks, but automatic approval
+review also rejected this reduced live rollout, requiring explicit production
+approval. That approval was requested and remains pending. The payout reminder
+job still requires missing columns/tables, and permissive live policies remain.
+Do not replay the historical migration directory: migration history is incomplete.
+The connected Supabase main branch reports MIGRATIONS_FAILED, so PR #4 must not be
+merged until that integration/history is reconciled. Application deployments can
+be independently built from the reviewed branch.
 
 Leaked-password protection remains disabled in Supabase Auth. The advisor's
 remediation is https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection.
@@ -83,7 +95,7 @@ used by RLS. Such advisor warnings require individual review, not blanket revoke
 
 - TypeScript checking passed.
 - Production build passed on Next.js 16.4.3, including the new receipt endpoint.
-- 29 security/API tests pass, covering malformed input, suspension, ownership,
+- 31 security/API tests pass, covering malformed input, suspension, ownership,
   push destinations, cross-origin requests, cron authentication, receipt loading,
   and redirect-cookie propagation.
 - 9 database scenarios pass in an isolated Postgres engine, using production
@@ -119,3 +131,16 @@ they do not establish that the unapplied production migration is already active.
 
 These findings prevent an honest declaration that TDX is fully error-free or
 that the production security hardening is complete.
+
+## Receipt sharing and export update
+
+A Share receipt button offers WhatsApp, Facebook, Instagram, TikTok, and Email.
+Supported devices share the prepared PNG through the native sharing menu. Other
+devices download the image and show explicit app links/instructions for attaching
+it. No receipt, member name, phone number, amount, or transaction ID is placed in
+a public social URL or uploaded to a third-party sharing service. Direct posting
+or recipient selection is left to the device/app. Cancellation is handled.
+
+Additional application changes include a bounded public readiness check, useful
+error/not-found pages, private-route crawler exclusions, relationship typing
+repairs, and a Content Security Policy that restricts executable/external content.

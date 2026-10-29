@@ -1004,7 +1004,7 @@ export default function AdminPanel() {
                   <Download className="w-3 h-3" /> {t("export")}
                 </button>
                 <span className="h-9 flex items-center rounded-lg bg-surface-bright px-3 text-xs font-semibold text-on-surface-variant">
-                  <Printer className="w-3 h-3 mr-1" /> {t("printPdf")}: use the print button in a user's Actions column
+                  <Printer className="w-3 h-3 mr-1" /> {t("printPdf")}: use the print button in a user&apos;s Actions column
                 </span>
               </div>
             </div>
@@ -1127,7 +1127,7 @@ export default function AdminPanel() {
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="font-bold text-on-surface">{d.fullName} <span className="text-xs font-normal text-on-surface-variant">@{d.username}</span></p>
-                      <p className="text-xs text-on-surface-variant">{d.mobile} · Submitted: {fmtDate(d.created_at ?? (d as any).uploaded_at)}</p>
+                      <p className="text-xs text-on-surface-variant">{d.mobile} · Submitted: {fmtDate(d.created_at ?? d.uploaded_at)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">{fmtPKR(d.amount)}</p>
@@ -1189,7 +1189,7 @@ export default function AdminPanel() {
                           }`}>{d.ai_verdict || "unsure"}</span>
                         </td>
                         <td className="px-3 py-2"><span className={statusBadgeCls(d.status)}>{d.status}</span></td>
-                        <td className="px-3 py-2">{fmtDate((d as any).uploaded_at ?? d.created_at)}</td>
+                        <td className="px-3 py-2">{fmtDate(d.uploaded_at ?? d.created_at)}</td>
                         <td className="px-3 py-2">
                           <button
                             onClick={() => openReceiptModal("deposit", d.id)}
@@ -1577,7 +1577,7 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <p className="mb-3 rounded bg-[#0B2E1F]/5 px-3 py-2 text-xs text-on-surface-variant">
-                    This upgrade becomes effective automatically after the member's next completed withdrawal or paid profit.
+                    This upgrade becomes effective automatically after the member&apos;s next completed withdrawal or paid profit.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => handleUpgradeReject(u)} className="btn-danger-3d h-9 rounded-lg px-4 text-sm font-semibold">

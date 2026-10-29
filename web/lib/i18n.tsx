@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useSyncExternalStore } from "react";
 
 export type Lang = "en" | "ur";
 
@@ -756,7 +756,7 @@ const I18nContext = createContext<I18nContextValue>({
 function getCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
   const match = document.cookie.match(new RegExp("(^| )" + name + "=([^;]+)"));
-  return match ? decodeURIComponent(match[2]) : null;
+  try { return match ? decodeURIComponent(match[2]) : null; } catch { return null; }
 }
 
 function setCookie(name: string, value: string, days = 365) {
@@ -766,20 +766,19 @@ function setCookie(name: string, value: string, days = 365) {
   document.cookie = `${name}=${encodeURIComponent(value)}; expires=${d.toUTCString()}; path=/`;
 }
 
+function readLocale(): Lang { return getCookie("locale") === "en" ? "en" : "ur"; }
+function subscribeLocale(notify: () => void) {
+  window.addEventListener("tdx:locale", notify);
+  return () => window.removeEventListener("tdx:locale", notify);
+}
+const serverLocale = (): Lang => "ur";
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("ur");
-
-  useEffect(() => {
-    const saved = getCookie("locale");
-    if (saved === "en" || saved === "ur") {
-      setLangState(saved);
-    }
-  }, []);
-
-  const setLang = (l: Lang) => {
-    setLangState(l);
+  const lang = useSyncExternalStore(subscribeLocale, readLocale, serverLocale);
+  const setLang = useCallback((l: Lang) => {
     setCookie("locale", l);
-  };
+    window.dispatchEvent(new Event("tdx:locale"));
+  }, []);
 
   // Urdu is written right-to-left (Arabic script).
   const dir: "ltr" | "rtl" = lang === "en" ? "ltr" : "rtl";
@@ -803,8 +802,9 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return typeof val === "function" ? (val as () => string)() : (val as string);
   }, [lang]);
 
+  const value = useMemo(() => ({ lang, setLang, t, dir }), [lang, setLang, t, dir]);
   return (
-    <I18nContext.Provider value={{ lang, setLang, t, dir }}>
+    <I18nContext.Provider value={value}>
       {children}
     </I18nContext.Provider>
   );

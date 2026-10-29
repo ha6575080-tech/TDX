@@ -7,15 +7,16 @@ import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { PAYMENT_ACCOUNT } from "@/lib/investment";
+import type { User, Subscription } from "@supabase/supabase-js";
 
 export default function Home() {
   const { t } = useI18n();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    let subscription: any = null;
+    let subscription: Subscription | null = null;
 
     async function checkAuth() {
       try {

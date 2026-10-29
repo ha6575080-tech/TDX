@@ -67,7 +67,7 @@ export async function GET(request: Request) {
     .select("id, full_name, username, mobile_number")
     .in("id", userIds);
 
-  const users = (profiles ?? []).map((p: any) => ({
+  const users = (profiles ?? []).map((p) => ({
     id: p.id,
     fullName: p.full_name ?? "Unknown",
     username: p.username ?? "Unknown",

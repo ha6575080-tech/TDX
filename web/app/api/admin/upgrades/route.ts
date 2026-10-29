@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -22,7 +23,7 @@ export async function GET() {
     return internalError("admin/upgrades", upgradesError);
   }
 
-  const parsed = (upgrades ?? []).map((u: any) => ({
+  const parsed = (upgrades ?? []).map((u) => ({
     id: u.id,
     user_id: u.user_id,
     previous_amount: u.previous_amount,
@@ -34,9 +35,9 @@ export async function GET() {
     activated_after_entity: u.activated_after_entity,
     decided_at: u.decided_at,
     decision_note: u.decision_note,
-    fullName: u.profiles?.full_name ?? "Unknown",
-    username: u.profiles?.username ?? "Unknown",
-    mobile: u.profiles?.mobile_number ?? "Unknown",
+    fullName: relatedOne(u.profiles)?.full_name ?? "Unknown",
+    username: relatedOne(u.profiles)?.username ?? "Unknown",
+    mobile: relatedOne(u.profiles)?.mobile_number ?? "Unknown",
   }));
 
   return NextResponse.json({ upgrades: parsed });

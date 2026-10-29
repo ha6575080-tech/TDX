@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -30,7 +31,7 @@ export async function GET() {
   const now = Date.now();
   const fiveHours = 5 * 60 * 60 * 1000;
 
-  const parsed = (profits ?? []).map((p: any) => {
+  const parsed = (profits ?? []).map((p) => {
     const payoutTime = p.payout_date ? new Date(p.payout_date).getTime() : null;
     const dueSoon =
       p.status === "pending" &&
@@ -46,8 +47,8 @@ export async function GET() {
       status: p.status,
       payout_date: p.payout_date,
       dueSoon,
-      fullName: p.profiles?.full_name ?? "Unknown",
-      username: p.profiles?.username ?? "Unknown",
+      fullName: relatedOne(p.profiles)?.full_name ?? "Unknown",
+      username: relatedOne(p.profiles)?.username ?? "Unknown",
     };
   });
 

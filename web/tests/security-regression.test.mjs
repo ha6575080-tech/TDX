@@ -155,3 +155,27 @@ test("notification clicks keep navigation inside TDX", async () => {
   await pending;
   assert.equal(opened, "https://tdx.example/");
 });
+
+test("receipt sharing supports every requested destination without putting member details in external URLs", async () => {
+  const receipt = load("lib/receipt-export.ts");
+  assert.deepEqual(Array.from(receipt.RECEIPT_SHARE_TARGETS), ["WhatsApp", "Facebook", "Instagram", "TikTok", "Email"]);
+  const file = new File(["fixture"], "receipt.png", { type: "image/png" });
+  let payload;
+  assert.equal(await receipt.shareReceiptFile(file, { canShare: () => true, share: async (value) => { payload = value; } }), "shared");
+  assert.equal(payload.files[0], file);
+  assert.equal(payload.url, undefined);
+  assert.equal(await receipt.shareReceiptFile(file, { canShare: () => false }), "unsupported");
+  assert.equal(await receipt.shareReceiptFile(file, { canShare: () => true, share: async () => { throw { name: "AbortError" }; } }), "cancelled");
+  assert.equal(await receipt.shareReceiptFile(file, { canShare: () => true, share: async () => { throw new Error("unsupported"); } }), "unsupported");
+});
+test("receipt exports preserve every field, reject invented rates, and handle invalid dates", () => {
+  const receipt = load("lib/receipt-export.ts");
+  const data = { type: "deposit", id: "fixture-id", user: "Fixture", mobile: "fixture-mobile", username: "fixture-user", city: "Fixture City", amount: 5000, status: "approved", date: "invalid", percentage: 90, language: "en" };
+  const fields = new Map(receipt.receiptRows(data, false));
+  assert.equal(fields.get("Member"), "Fixture");
+  assert.equal(fields.get("City"), "Fixture City");
+  assert.equal(fields.get("Amount"), "Rs 5,000");
+  assert.equal(fields.get("Date"), "—");
+  assert.equal(fields.has("Percentage"), false);
+  assert.equal(receipt.receiptFilename({ ...data, id: "../../test" }, "png").includes("/"), false);
+});

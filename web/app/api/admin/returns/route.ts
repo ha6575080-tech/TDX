@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -30,7 +31,7 @@ export async function GET() {
     return internalError("admin/returns", returnsError);
   }
 
-  const parsed = (returns ?? []).map((r: any) => ({
+  const parsed = (returns ?? []).map((r) => ({
     id: r.id,
     user_id: r.user_id,
     amount: r.amount,
@@ -42,9 +43,9 @@ export async function GET() {
     completed_at: r.completed_at,
     completed_by: r.completed_by,
     expected_return_date: r.expected_return_date,
-    fullName: r.profiles?.full_name ?? "Unknown",
-    username: r.profiles?.username ?? "Unknown",
-    mobile: r.profiles?.mobile_number ?? "Unknown",
+    fullName: relatedOne(r.profiles)?.full_name ?? "Unknown",
+    username: relatedOne(r.profiles)?.username ?? "Unknown",
+    mobile: relatedOne(r.profiles)?.mobile_number ?? "Unknown",
   }));
 
   return NextResponse.json({ returns: parsed });
