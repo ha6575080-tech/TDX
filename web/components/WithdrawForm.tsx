@@ -49,10 +49,7 @@ export default function WithdrawForm() {
   const [activeInvestment, setActiveInvestment] = useState<number | null>(null);
   const [cycle, setCycle] = useState<CycleState | null>(null);
 
-  const loadWithdrawals = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const loadWithdrawals = useCallback(() => supabase.auth.getUser().then(async ({ data: { user } }) => {
     if (!user) return;
 
     const { data } = await supabase
@@ -77,7 +74,7 @@ export default function WithdrawForm() {
     } catch {
       // non-fatal: the server still validates on submit
     }
-  }, [supabase]);
+  }), [supabase]);
 
   useEffect(() => {
     loadWithdrawals();

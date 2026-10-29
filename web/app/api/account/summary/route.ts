@@ -78,6 +78,8 @@ export async function GET() {
         .limit(1),
     ]);
 
+  const queryFailure = [depositsRes, profitsRes, withdrawalsRes, returnsRes, upgradesRes].find((result) => result.error);
+  if (queryFailure?.error) return internalError("account/summary", queryFailure.error);
   const profile = profileRes.data;
   const deposits = depositsRes.data ?? [];
   const profits = profitsRes.data ?? [];

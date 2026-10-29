@@ -18,7 +18,7 @@ function cookieJar() {
 function load(relative, mocks = {}, globals = {}) {
   const filename = path.join(web, relative);
   const source = fs.readFileSync(filename, "utf8");
-  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true } }).outputText;
+  const output = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText;
   const exports = {};
   const require = (name) => {
     if (name in mocks) return mocks[name];
@@ -178,4 +178,52 @@ test("receipt exports preserve every field, reject invented rates, and handle in
   assert.equal(fields.get("Date"), "—");
   assert.equal(fields.has("Percentage"), false);
   assert.equal(receipt.receiptFilename({ ...data, id: "../../test" }, "png").includes("/"), false);
+});
+
+test("admin support messages reject non-text and oversized input before database writes", async () => {
+  const subject = load("app/api/admin/chat/route.ts", { "@/lib/admin-auth": { requireAdmin: async () => ({ user, error: null }) }, "@/lib/supabase/server": { createServiceRoleClient: async () => { throw new Error("Unexpected write"); } } });
+  for (const text of [12, {}, [], " ", "x".repeat(4001)]) assert.equal((await subject.POST(request({ userId: "fixture", text }))).status, 400);
+});
+
+for (const available of [true, false]) test(`readiness endpoint reports ${available ? "ready" : "unavailable"} without exposing database details`, async () => {
+  const subject = load("app/api/health/route.ts", { "@supabase/supabase-js": { createClient: () => ({ from: () => ({ select: () => ({ limit: async () => ({ error: available ? null : { message: "PRIVATE DATABASE DETAIL" } }) }) }) }) } }, { process: { env: { NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "fixture" } } });
+  const response = await subject.GET();
+  assert.equal(response.status, available ? 200 : 503);
+  assert.equal((await response.json()).status, available ? "ok" : "unavailable");
+  assert.equal(response.headers.get("Cache-Control"), "no-store");
+});
+
+function invoiceSubject(viewer, owner = user.id) {
+  const filters = [];
+  let profileReads = 0;
+  const query = { eq(key, value) { filters.push([key, value]); return query; }, single: async () => ({ data: filters.some(([key, value]) => key === "user_id" && value !== owner) ? null : { id: "fixture", user_id: owner, amount: 5000, status: "approved", uploaded_at: "2026-10-29" }, error: null }) };
+  const client = { from(table) { return { select() { if (table === "deposits") return query; profileReads++; return { eq: () => ({ single: async () => ({ data: { full_name: "Fixture", username: "fixture" }, error: null }) }) }; } }; } };
+  const navigate = (url) => { throw new Error(`redirect:${url}`); };
+  const page = load("app/invoice/[depositId]/page.tsx", {
+    "react/jsx-runtime": { jsx: (type, props) => ({ type, props }), jsxs: (type, props) => ({ type, props }) },
+    "next/navigation": { redirect: navigate, notFound: () => { throw new Error("not-found"); } },
+    "next/headers": { cookies: async () => ({ get: () => ({ value: "en" }) }) },
+    "next/link": { __esModule: true, default: "Link" },
+    "@/components/ReceiptGenerator": { __esModule: true, default: "ReceiptGenerator" },
+    "@/components/PrintButton": { __esModule: true, default: "PrintButton" },
+    "@/lib/supabase/server": { createClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) }, from: () => ({ select: () => ({ eq: () => ({ single: async () => ({ data: viewer, error: null }) }) }) }) }), createServiceRoleClient: async () => client },
+  });
+  return { render: () => page.default({ params: Promise.resolve({ depositId: "fixture" }) }), filters, profileReads: () => profileReads };
+}
+test("member invoice loads only the owner's receipt and uses the shared receipt renderer", async () => {
+  const subject = invoiceSubject({ role: "user", is_suspended: false });
+  const result = await subject.render();
+  assert.ok(subject.filters.some(([key, value]) => key === "user_id" && value === user.id));
+  assert.match(JSON.stringify(result), /ReceiptGenerator/);
+  assert.equal(subject.profileReads(), 1);
+});
+test("another member's invoice is unavailable before private profile details are read", async () => {
+  const subject = invoiceSubject({ role: "user", is_suspended: false }, "other-member");
+  await assert.rejects(subject.render(), /not-found/);
+  assert.equal(subject.profileReads(), 0);
+});
+test("suspended members cannot open invoice downloads directly", async () => {
+  const subject = invoiceSubject({ role: "user", is_suspended: true });
+  await assert.rejects(subject.render(), /redirect:\/dashboard/);
+  assert.equal(subject.profileReads(), 0);
 });

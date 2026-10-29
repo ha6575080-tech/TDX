@@ -303,6 +303,13 @@ function printUser(u: UserRow): void {
   w.print();
 }
 
+async function readAdminJSON(url: string) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000), cache: "no-store" });
+  const body = await response.json();
+  if (!response.ok || !body || typeof body !== "object" || Array.isArray(body)) throw new Error("Could not load admin records. Please refresh and try again.");
+  return body;
+}
+
 export default function AdminPanel() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
@@ -393,59 +400,45 @@ export default function AdminPanel() {
     }
   }
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [ov, us, dp, wd, an, po, rt, ug] = await Promise.all([
-        // Overview is fetched separately so a failure shows a clear
-        // error state instead of silently rendering seven zeroes — and
-        // does not block the rest of the admin data.
-        fetch("/api/admin/overview").then(async (r) => {
-          if (!r.ok) return { __error: "Unable to load overview metrics. Please refresh." };
-          return await r.json();
-        }),
-        fetch("/api/admin/users").then((r) => r.json()),
-        fetch("/api/admin/deposits").then((r) => r.json()),
-        fetch("/api/admin/withdrawals").then((r) => r.json()),
-        fetch("/api/admin/announcements").then((r) => r.json()),
-        fetch("/api/admin/payouts").then((r) => r.json()),
-        fetch("/api/admin/returns").then((r) => r.json()),
-        fetch("/api/admin/upgrades").then((r) => r.json()),
-      ]);
-      setOverview(
+  const loadAll = useCallback(() => Promise.all([
+      readAdminJSON("/api/admin/overview").catch(() => ({ __error: "Unable to load overview metrics. Please refresh." })),
+      ...["users", "deposits", "withdrawals", "announcements", "payouts", "returns", "upgrades"].map((section) => readAdminJSON("/api/admin/" + section)),
+    ]).then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const [ov, us, dp, wd, an, po, rt, ug] = loadedResponse;
+setOverview(
         ov && typeof ov === "object" && "__error" in ov ? null : (ov as Overview)
       );
-      if (ov && typeof ov === "object" && "__error" in ov) {
+if (ov && typeof ov === "object" && "__error" in ov) {
         setError((ov as { __error: string }).__error);
       } else {
         setError(null);
       }
-      setUsers(us.users ?? []);
-      setDeposits(dp.deposits ?? []);
-      setWithdrawals(wd.withdrawals ?? []);
-      setAnnouncements(an.announcements ?? []);
-      setPayouts(po.payouts ?? []);
-      setReturns(rt.returns ?? []);
-      setUpgrades(ug.upgrades ?? []);
-    } catch (err) {
+setUsers(us.users ?? []);
+setDeposits(dp.deposits ?? []);
+setWithdrawals(wd.withdrawals ?? []);
+setAnnouncements(an.announcements ?? []);
+setPayouts(po.payouts ?? []);
+setReturns(rt.returns ?? []);
+setUpgrades(ug.upgrades ?? []);
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load admin data.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, []);
+    }), []);
 
-  const loadNotifications = useCallback(async () => {
-    const res = await fetch("/api/admin/notifications");
+  const loadNotifications = useCallback(() => fetch("/api/admin/notifications", { signal: AbortSignal.timeout(15000) }).then(async (res) => {
     const data = await res.json();
-    if (res.ok) setNotifications(data.notifications ?? []);
-  }, []);
+    if (!res.ok) throw new Error("Could not load notifications");
+    setNotifications(data.notifications ?? []);
+  }).catch(() => setError("Could not load notifications.")), []);
 
-  const loadChatUsers = useCallback(async () => {
-    const res = await fetch("/api/admin/chat");
+  const loadChatUsers = useCallback(() => fetch("/api/admin/chat", { signal: AbortSignal.timeout(15000) }).then(async (res) => {
     const data = await res.json();
-    if (res.ok) setChatUsers(data.users ?? []);
-  }, []);
+    if (!res.ok) throw new Error("Could not load support messages");
+    setChatUsers(data.users ?? []);
+  }).catch(() => setError("Could not load support messages.")), []);
 
   useEffect(() => {
     loadAll();

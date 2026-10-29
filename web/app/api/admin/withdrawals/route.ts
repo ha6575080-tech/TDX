@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -14,7 +15,7 @@ export async function GET() {
   const { data: withdrawals, error: withdrawalsError } = await supabase
     .from("withdrawals")
     .select(
-      "id, user_id, amount, fee, net_amount, status, user_details, requested_at, processed_at, monthly_profit_rate, cycle_number, cycle_start, cycle_end, profiles(full_name, username, mobile_number)"
+      "id, user_id, amount, fee, net_amount, status, user_details, requested_at, processed_at, monthly_profit_rate, cycle_number, cycle_start, cycle_end, profiles!withdrawals_user_id_fkey(full_name, username, mobile_number)"
     )
     .order("requested_at", { ascending: false })
     .limit(200);
@@ -54,9 +55,9 @@ export async function GET() {
     cycle_number: w.cycle_number,
     cycle_start: w.cycle_start,
     cycle_end: w.cycle_end,
-    fullName: w.profiles?.[0]?.full_name ?? "Unknown",
-    username: w.profiles?.[0]?.username ?? "Unknown",
-    mobile: w.profiles?.[0]?.mobile_number ?? "Unknown",
+    fullName: relatedOne(w.profiles)?.full_name ?? "Unknown",
+    username: relatedOne(w.profiles)?.username ?? "Unknown",
+    mobile: relatedOne(w.profiles)?.mobile_number ?? "Unknown",
   }));
 
   return NextResponse.json({ withdrawals: parsed });

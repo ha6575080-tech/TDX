@@ -22,3 +22,4 @@ build/
 web/dependency-audit*.json
 web/lint-audit.json
 web/regression-results.txt
+.regression-artifacts/

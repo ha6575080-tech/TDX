@@ -90,7 +90,7 @@ export async function POST(request: Request) {
   }
 
   const { userId, text } = body;
-  if (!userId || !text || !text.trim()) {
+  if (typeof userId !== "string" || !userId || typeof text !== "string" || !text.trim() || text.length > 4000) {
     return NextResponse.json(
       { error: "userId and text are required" },
       { status: 400 }

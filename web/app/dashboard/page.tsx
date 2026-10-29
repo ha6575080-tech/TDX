@@ -146,37 +146,23 @@ export default function DashboardPage() {
   // normal dashboard is then not rendered at all.
   const [suspended, setSuspended] = useState(false);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {
+  const loadData = useCallback(() => supabase.auth.getUser().then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const {
         data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      } = loadedResponse;
+if (!user) {
         router.push("/login");
         return;
       }
-      const userId = user.id;
-
-      // Ensure tasks exist + deductions applied (server-side logic via route).
-      await fetch("/api/tasks/ensure", {
+const userId = user.id;
+await fetch("/api/tasks/ensure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId }),
       }).catch(() => {});
-
-      // Authoritative financials are computed SERVER-SIDE (/api/account/summary).
-      // The remaining queries are display-only data.
-      // NOTE: the package model has been removed from the active product —
-      // members enter a free investment amount (5,000–2,000,000 PKR), so the
-      // packages table is no longer queried here.
-      //
-      // SUSPENSION GATE: /api/account/summary returns 403 {error:
-      // "account_suspended"} for suspended members — the authoritative
-      // server-side block. We surface a dedicated suspended screen instead
-      // of the normal dashboard (records are untouched; admin keeps access).
-      const [summaryRes, depositsRes, annRes] = await Promise.all([
+const [summaryRes, depositsRes, annRes] = await Promise.all([
         fetch("/api/account/summary").then(async (r) => {
           if (!r.ok) {
             const body = (await r.json().catch(() => null)) as {
@@ -201,30 +187,25 @@ export default function DashboardPage() {
           .order("created_at", { ascending: false })
           .limit(1),
       ]);
-
-      setProfile(summaryRes.profile as Profile);
-      setRecentDeposits((depositsRes.data ?? []) as Deposit[]);
-      setAnnouncement((annRes.data?.[0] ?? null) as Announcement | null);
-
-      setTotalDeposited(summaryRes.display.totalDeposited);
-      setTotalProfit(summaryRes.display.totalProfit);
-      setTotalWithdrawn(summaryRes.display.totalWithdrawn);
-      setFinancial(summaryRes.financial ?? null);
-
-      // Belt-and-braces: if the profile flag says suspended, block too.
-      if ((summaryRes.profile as Profile | null)?.is_suspended) {
+setProfile(summaryRes.profile as Profile);
+setRecentDeposits((depositsRes.data ?? []) as Deposit[]);
+setAnnouncement((annRes.data?.[0] ?? null) as Announcement | null);
+setTotalDeposited(summaryRes.display.totalDeposited);
+setTotalProfit(summaryRes.display.totalProfit);
+setTotalWithdrawn(summaryRes.display.totalWithdrawn);
+setFinancial(summaryRes.financial ?? null);
+if ((summaryRes.profile as Profile | null)?.is_suspended) {
         setSuspended(true);
       }
-    } catch (err) {
+}).catch((err: unknown) => {
       if (err instanceof AccountSuspendedError) {
         setSuspended(true);
       } else {
         setError(err instanceof Error ? err.message : "Failed to load dashboard.");
       }
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [router, supabase]);
+    }), [router, supabase]);
 
   useEffect(() => {
     loadData();
@@ -267,6 +248,14 @@ export default function DashboardPage() {
       </main>
     );
   }
+
+  if (loading || error || !profile) return <main className="min-h-screen bg-base text-on-surface pb-24 md:pt-20">
+    <TopNav active="/dashboard" /><BottomNav active="/dashboard" />
+    <div className="max-w-lg mx-auto p-8 text-center space-y-4">
+      <p role={error ? "alert" : "status"}>{error ?? t("loading")}</p>
+      {error && <button type="button" className="btn-3d-lime px-5 py-3" onClick={() => { setLoading(true); void loadData(); }}>{lang === "ur" ? "دوبارہ کوشش کریں" : "Try again"}</button>}
+    </div>
+  </main>;
 
   return (
     <main className="min-h-screen bg-base text-on-surface pb-24 md:pb-0 md:pt-20">

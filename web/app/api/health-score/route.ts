@@ -58,7 +58,7 @@ export async function GET() {
 
   const since30 = new Date(Date.now() - 30 * DAY_MS).toISOString().slice(0, 10);
 
-  const [profileRes, depositsRes, profitsRes, withdrawalsRes, tasksRes, upgradesRes] =
+  const [profileRes, depositsRes, withdrawalsRes, tasksRes, upgradesRes] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -68,7 +68,6 @@ export async function GET() {
         .eq("id", userId)
         .single(),
       supabase.from("deposits").select("amount, status, uploaded_at").eq("user_id", userId),
-      supabase.from("profits").select("amount, status").eq("user_id", userId),
       supabase
         .from("withdrawals")
         .select("amount, status, requested_at")
@@ -86,13 +85,11 @@ export async function GET() {
         .limit(5),
     ]);
 
-  if (profileRes.error) {
-    return internalError("health-score", profileRes.error);
-  }
+  const failure = [profileRes, depositsRes, withdrawalsRes, tasksRes, upgradesRes].find((result) => result.error);
+  if (failure?.error) return internalError("health-score", failure.error);
 
   const profile = profileRes.data;
   const deposits = depositsRes.data ?? [];
-  const profits = profitsRes.data ?? [];
   const withdrawals = withdrawalsRes.data ?? [];
   const tasks = tasksRes.data ?? [];
   const upgrades = upgradesRes.data ?? [];
@@ -102,9 +99,7 @@ export async function GET() {
   // ---- /api/account/summary — the browser never computes these).
   const approvedDeposits = deposits.filter((d) => d.status === "approved");
   const totalDeposited = approvedDeposits.reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  const paidProfits = profits
-    .filter((p) => p.status === "paid")
-    .reduce((s, p) => s + Number(p.amount ?? 0), 0);
+  
   const deductions = Number(profile?.total_deductions ?? 0);
   const activeInvestment =
     profile?.investment_amount != null ? Number(profile.investment_amount) : totalDeposited;

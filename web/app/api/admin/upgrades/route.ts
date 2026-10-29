@@ -14,7 +14,7 @@ export async function GET() {
   const { data: upgrades, error: upgradesError } = await supabase
     .from("investment_upgrades")
     .select(
-      "id, user_id, previous_amount, requested_amount, increase_amount, status, requested_at, activated_at, activated_after_entity, decided_at, decision_note, profiles(full_name, username, mobile_number)"
+      "id, user_id, previous_amount, requested_amount, increase_amount, status, requested_at, activated_at, activated_after_entity, decided_at, decision_note, profiles!investment_upgrades_user_id_fkey(full_name, username, mobile_number)"
     )
     .order("requested_at", { ascending: false })
     .limit(200);

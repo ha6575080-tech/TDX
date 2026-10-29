@@ -91,8 +91,6 @@ export default function DepositForm() {
       const { error: uploadError } = await supabase.storage.from("receipts").upload(receiptPath, receipt!, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // 2. Lookup agent id for completeness (optional)
-      const agentRecord = agents.find((a) => a.name === selectedAgent);
 
       // 3. Create deposit record — online_transfer
       const createRes = await fetch("/api/deposits", {
@@ -115,7 +113,6 @@ export default function DepositForm() {
         body: JSON.stringify({ depositId: deposit.id }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setSuccess("Your deposit is saved and pending verification. Receipt processing is delayed; please do not submit it again.");
         setAmount("");
         setReceipt(null);
@@ -158,7 +155,6 @@ export default function DepositForm() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in.");
-      const userId = user.id;
 
       const agentRecord = agents.find((a) => a.name === selectedAgent);
 
@@ -185,7 +181,6 @@ export default function DepositForm() {
         body: JSON.stringify({ depositId: deposit.id }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         setSuccess("Your deposit is saved and pending verification. Receipt processing is delayed; please do not submit it again.");
         setAmount("");
         setReceipt(null);

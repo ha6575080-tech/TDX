@@ -23,26 +23,24 @@ export default function NotificationBell() {
   const [loading, setLoading] = useState(true);
   const [actionError, setActionError] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/notifications");
-      if (!res.ok) {
+  const load = useCallback(() => fetch("/api/notifications").then(async (loadedResponse) => {
+setLoading(true);
+const res = loadedResponse;
+if (!res.ok) {
         // Surface the failure explicitly — an API error must never render
         // as the "no notifications" empty state.
         setLoadError(true);
         return;
       }
-      const data = await res.json();
-      setLoadError(false);
-      setNotifications(data.notifications ?? []);
-      setUnread((data.notifications ?? []).filter((n: Notification) => !n.is_read).length);
-    } catch {
+const data = await res.json();
+setLoadError(false);
+setNotifications(data.notifications ?? []);
+setUnread((data.notifications ?? []).filter((n: Notification) => !n.is_read).length);
+}).catch(() => {
       setLoadError(true);
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, []);
+    }), []);
 
   useEffect(() => {
     load();

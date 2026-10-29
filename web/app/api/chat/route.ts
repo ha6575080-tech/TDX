@@ -10,7 +10,7 @@ function getSupabaseAdmin() {
   return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
-export async function GET(req: Request) {
+export async function GET() {
   // Authentication: the session user may only read their own thread.
   const { user, error } = await requireUser();
   if (error) return error;

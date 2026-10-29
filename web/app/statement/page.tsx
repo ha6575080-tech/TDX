@@ -100,15 +100,16 @@ export default function StatementPage() {
   const [err, setErr] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    fetch("/api/statements")
-      .then((r) => r.json())
+    const controller = new AbortController();
+    fetch("/api/statements", { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
+      .then(async (r) => { const body = await r.json(); if (!r.ok) throw new Error(body.error || "Failed to load statement"); return body; })
       .then((json) => {
         if (json.error) setErr(json.error);
-        else setData(json);
+        else { setErr(null); setData(json); }
       })
-      .catch(() => setErr(t("forbidden") || "Failed to load"))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!controller.signal.aborted) setErr(t("forbidden") || "Failed to load"); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
   }, [t]);
 
   if (loading) {

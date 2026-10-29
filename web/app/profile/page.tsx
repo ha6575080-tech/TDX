@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useI18n } from "@/lib/i18n";
 import { TopNav, BottomNav, GlassPanel } from "@/components/ui";
 
 interface ProfileData {
@@ -28,7 +27,6 @@ const inputCls =
 export default function ProfilePage() {
   const router = useRouter();
   const supabase = createClient();
-  const { t } = useI18n();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -42,34 +40,32 @@ export default function ProfilePage() {
   const [accountNumber, setAccountNumber] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+  const load = useCallback(() => supabase.auth.getUser().then(async (loadedResponse) => {
+setLoading(true);
+const { data: { user } } = loadedResponse;
+if (!user) {
         router.push("/login");
         return;
       }
-      const { data, error } = await supabase
+const { data, error } = await supabase
         .from("profiles")
         .select("id, username, full_name, address, city, mobile_number, account_number, payment_method, email, is_active, is_suspended, role, profit_activation_date")
         .eq("id", user.id)
         .single();
-      if (error) throw error;
-      const p = data as ProfileData;
-      setProfile(p);
-      setFullName(p.full_name ?? "");
-      setAddress(p.address ?? "");
-      setCity(p.city ?? "");
-      setMobile(p.mobile_number ?? "");
-      setAccountNumber(p.account_number ?? "");
-      setPaymentMethod(p.payment_method ?? "");
-    } catch (e) {
+if (error) throw error;
+const p = data as ProfileData;
+setProfile(p);
+setFullName(p.full_name ?? "");
+setAddress(p.address ?? "");
+setCity(p.city ?? "");
+setMobile(p.mobile_number ?? "");
+setAccountNumber(p.account_number ?? "");
+setPaymentMethod(p.payment_method ?? "");
+}).catch((e: unknown) => {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "Failed to load profile" });
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [router, supabase]);
+    }), [router, supabase]);
 
   useEffect(() => {
     load();

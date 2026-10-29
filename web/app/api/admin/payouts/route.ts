@@ -19,7 +19,7 @@ export async function GET() {
   const { data: profits, error: profitsError } = await supabase
     .from("profits")
     .select(
-      "id, user_id, month, year, amount, status, payout_date, profiles(full_name, username)"
+      "id, user_id, month, year, amount, status, payout_date, profiles!profits_user_id_fkey(full_name, username)"
     )
     .order("payout_date", { ascending: true })
     .limit(200);

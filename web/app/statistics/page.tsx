@@ -39,22 +39,18 @@ export default function StatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {
+  const loadData = useCallback(() => supabase.auth.getUser().then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const {
         data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      } = loadedResponse;
+if (!user) {
         router.push("/login");
         return;
       }
-      const userId = user.id;
-
-      // Authoritative financial totals come from the server; the remaining
-      // queries are display-only date lists.
-      const [summaryRes, profileRes, paidRes, withdrawalsDatesRes] =
+const userId = user.id;
+const [summaryRes, profileRes, paidRes, withdrawalsDatesRes] =
         await Promise.all([
           fetch("/api/account/summary").then((r) => {
             if (!r.ok) throw new Error("Failed to load account summary.");
@@ -75,34 +71,30 @@ export default function StatisticsPage() {
             .select("requested_at")
             .eq("user_id", userId),
         ]);
-
-      if (profileRes.error) throw profileRes.error;
-
-      setUsername(profileRes.data?.username ?? user.email?.split("@")[0] ?? "User");
-      setFullName(profileRes.data?.full_name ?? "");
-      setMobile(profileRes.data?.mobile_number ?? "");
-      setRegistered(profileRes.data?.created_at ?? "");
-      setProfitActivation(profileRes.data?.profit_activation_date ?? "");
-
-      setTotalDeposited(summaryRes.display.totalDeposited);
-      setTotalProfit(summaryRes.display.totalProfit);
-      setTotalWithdrawn(summaryRes.display.totalWithdrawn);
-      setPayoutDates(
+if (profileRes.error) throw profileRes.error;
+setUsername(profileRes.data?.username ?? user.email?.split("@")[0] ?? "User");
+setFullName(profileRes.data?.full_name ?? "");
+setMobile(profileRes.data?.mobile_number ?? "");
+setRegistered(profileRes.data?.created_at ?? "");
+setProfitActivation(profileRes.data?.profit_activation_date ?? "");
+setTotalDeposited(summaryRes.display.totalDeposited);
+setTotalProfit(summaryRes.display.totalProfit);
+setTotalWithdrawn(summaryRes.display.totalWithdrawn);
+setPayoutDates(
         (paidRes.data ?? [])
           .map((p) => fmtDate(p.payout_date))
           .filter((d) => d !== "—")
       );
-      setWithdrawDates(
+setWithdrawDates(
         (withdrawalsDatesRes.data ?? [])
           .map((w) => fmtDate(w.requested_at))
           .filter((d) => d !== "—")
       );
-    } catch (err) {
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load statistics.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [router, supabase]);
+    }), [router, supabase]);
 
   useEffect(() => {
     loadData();

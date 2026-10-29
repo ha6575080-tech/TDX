@@ -44,17 +44,19 @@ export default function AdminPnlPage() {
   const { t, lang } = useI18n();
   const [pnl, setPnl] = useState<PnlResponse | null>(null);
   const [period, setPeriod] = useState("monthly");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/admin/pnl?period=${period}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]) })
+      .then(async (r) => { const body = await r.json(); if (!r.ok || !body.summary) throw new Error(body.error || "Could not load report"); return body; })
+      .then((json) => { if (!controller.signal.aborted) { setError(null); setPnl(json); } })
+      .catch(() => { if (!controller.signal.aborted) setError("Could not load the report. Please refresh and try again."); })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+    return () => controller.abort();
+  }, [period]);
 
-  const fetchPnl = (p: string) => {
-    setLoading(true);
-    fetch(`/api/admin/pnl?period=${p}`)
-      .then((r) => r.json())
-      .then((json) => setPnl(json))
-      .finally(() => setLoading(false));
-  };
-
-  useEffect(() => { fetchPnl(period); }, [period]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (error) return <p role="alert" className="p-6 text-red-400">{error}</p>;
 
   if (!pnl) {
     return <p className="p-6">{t("loading")}</p>;
@@ -90,7 +92,7 @@ export default function AdminPnlPage() {
         <label>{t("period")}</label>
         <select
           value={period}
-          onChange={(e) => setPeriod(e.target.value)}
+          onChange={(e) => { setLoading(true); setPeriod(e.target.value); }}
           className="glass-panel px-3 py-2"
         >
           {PERIODS.map((p) => (

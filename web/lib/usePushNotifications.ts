@@ -1,19 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function usePushNotifications() {
-  const supabase = createClient();
-  const [permission, setPermission] = useState<NotificationPermission>("default");
-  const [supported, setSupported] = useState(false);
+const supportsPush = () => typeof window !== "undefined" && "Notification" in window && "serviceWorker" in navigator && "PushManager" in window;
+const permissionSnapshot = (): NotificationPermission => supportsPush() ? Notification.permission : "default";
+const serverPermission = (): NotificationPermission => "default";
+function subscribePermission(notify: () => void) {
+  window.addEventListener("focus", notify);
+  window.addEventListener("tdx:push-permission", notify);
+  return () => { window.removeEventListener("focus", notify); window.removeEventListener("tdx:push-permission", notify); };
+}
+const serverSupport = () => false;
+function refreshPermission() { window.dispatchEvent(new Event("tdx:push-permission")); }
 
-  useEffect(() => {
-    if ("serviceWorker" in navigator && "PushManager" in window) {
-      setSupported(true);
-      setPermission(Notification.permission);
-    }
-  }, []);
+export function usePushNotifications() {
+  const supabase = useMemo(() => createClient(), []);
+  const supported = useSyncExternalStore(subscribePermission, supportsPush, serverSupport);
+  const permission = useSyncExternalStore(subscribePermission, permissionSnapshot, serverPermission);
 
   const subscribe = useCallback(async () => {
     if (!supported) return false;
@@ -36,7 +40,7 @@ export function usePushNotifications() {
         body: JSON.stringify({ subscription: sub.toJSON() }),
       });
       if (!res.ok) return false;
-      setPermission("granted");
+      refreshPermission();
       return true;
     } catch {
       return false;
@@ -46,7 +50,7 @@ export function usePushNotifications() {
   const requestPermission = useCallback(async () => {
     if (!supported) return false;
     const result = await Notification.requestPermission();
-    setPermission(result);
+    refreshPermission();
     if (result === "granted") {
       return subscribe();
     }

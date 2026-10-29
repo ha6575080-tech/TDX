@@ -5,11 +5,12 @@ Supabase: `jgbbifiizezrwvesdisc`. Vercel project: `tdx`.
 
 ## Current status
 
-The receipt picker and generator are deployed and were verified in an authenticated
-production admin session. The broader application is **not cleared for launch**.
-The production database security/schema rollout requires an explicit approval
-requested after automatic approval review rejected the reduced, non-backfilling
-changes too. Independent application fixes continue while that answer is pending.
+The receipt picker and generator were verified in an authenticated production
+admin session. The two approved schema/security migrations are now applied.
+The production deposit fingerprint stayed unchanged, and catalog checks confirm
+member financial/task writes are restricted and direct RPC suspension checks
+and the UUID ledger correction are present. The broader application is still
+**not cleared for launch** because the financial workflow risks below remain.
 
 ## Receipt failure reported during the audit
 
@@ -76,12 +77,16 @@ balances, dates, rates, and payment-account details:
 - `20261029102849_restore_required_app_schema.sql`
 - `20261029103017_financial_access_after_schema_repair.sql`
 
-These migrations pass local database regression checks, but automatic approval
-review also rejected this reduced live rollout, requiring explicit production
-approval. That approval was requested and remains pending. The payout reminder
-job still requires missing columns/tables, and permissive live policies remain.
+The user explicitly approved both migrations; both were successfully applied.
+Catalog checks confirmed the new schema, restricted member write/execute grants,
+suspension guards, and UUID ledger variable. The remaining ALL policies on the
+four money tables are admin-only, guarded by is_admin(). The existing deposit
+fingerprint remained 4bc734bb97aab4a88396926a8fab4f9a before and after deployment.
+No balance, transaction status, approval date, payout date, rate, or payment-account
+setting was backfilled.
+
 Do not replay the historical migration directory: migration history is incomplete.
-The connected Supabase main branch reports MIGRATIONS_FAILED, so PR #4 must not be
+The connected Supabase main branch reported MIGRATIONS_FAILED. PR #4 must not be
 merged until that integration/history is reconciled. Application deployments can
 be independently built from the reviewed branch.
 
@@ -95,7 +100,7 @@ used by RLS. Such advisor warnings require individual review, not blanket revoke
 
 - TypeScript checking passed.
 - Production build passed on Next.js 16.4.3, including the new receipt endpoint.
-- 31 security/API tests pass, covering malformed input, suspension, ownership,
+- 37 security/API tests pass, covering malformed input, suspension, ownership,
   push destinations, cross-origin requests, cron authentication, receipt loading,
   and redirect-cookie propagation.
 - 9 database scenarios pass in an isolated Postgres engine, using production
@@ -108,11 +113,22 @@ used by RLS. Such advisor warnings require individual review, not blanket revoke
 - Production anonymous account-summary request returned HTTP 401.
 - Production login rendered in both Urdu and English in the browser.
 
-The initial repository lint baseline failed with 70 errors. The legacy lint debt
-has not been globally suppressed. Full lint is not represented as passing.
-Authenticated browser flows and real external email/push deliveries have not
-been exercised with real member accounts. Database tests validate local behavior;
-they do not establish that the unapplied production migration is already active.
+The initial lint baseline had 70 errors. These were repaired without globally
+suppressing rules; full lint now passes. CI now includes lint.
+
+Two receipt export scenarios render English/Urdu PNGs, validate a one-page PDF,
+and inspect the generated DOCX archive to confirm it contains the identical PNG
+and accessible receipt details. The sample files use synthetic member details.
+The bank-style layout includes the actual TDX logo, support 0308-3958294, transaction
+reference, prominent PKR amount, and an electronic signature stamp with the wording
+DIGITALLY SIGNED / No manual signature required. This is an electronic issuance
+stamp; no certificate-backed PDF signing service is claimed or configured.
+
+Authenticated receipt loading/generation and the five-option share menu were
+verified in the browser. The browser download event stalled during verification;
+external sharing of actual member data was not performed. Other member actions
+and real external email/push delivery remain unverified.
+
 
 ## Remaining engineering risks
 
@@ -130,7 +146,7 @@ they do not establish that the unapplied production migration is already active.
   suitable embedded font and an export-specific regression check.
 
 These findings prevent an honest declaration that TDX is fully error-free or
-that the production security hardening is complete.
+that all production engineering risks are resolved.
 
 ## Receipt sharing and export update
 
@@ -144,3 +160,14 @@ or recipient selection is left to the device/app. Cancellation is handled.
 Additional application changes include a bounded public readiness check, useful
 error/not-found pages, private-route crawler exclusions, relationship typing
 repairs, and a Content Security Policy that restricts executable/external content.
+
+## Additional repairs
+
+- Member invoices use the shared professional receipt and filter ownership before
+  reading private member details. Suspended members cannot open direct invoice links.
+- Account summary and health score return an error if required queries fail.
+- Dashboard loading/failure states no longer render misleading zero balances.
+- Admin loaders use bounded requests and expose failures rather than empty lists.
+- Chat language dependencies and native push permission subscription are stable.
+- Automated tests cover invalid admin support messages, readiness responses,
+  invoice ownership and suspension, plus branded exports.

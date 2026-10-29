@@ -14,22 +14,17 @@ export default function AdminReceiptsPage() {
   const [type, setType] = useState<"deposit" | "payout">("deposit");
   const [rows, setRows] = useState<PickRow[]>([]);
   const [selectedId, setSelectedId] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
   const loadVersion = useRef(0);
 
-  const loadRecords = useCallback(async (tp: "deposit" | "payout") => {
+  const loadRecords = useCallback((tp: "deposit" | "payout") => {
     const version = ++loadVersion.current;
-    setLoading(true);
-    setRows([]);
-    setErr(null);
-    setSelectedId("");
-    setReceipt(null);
-    try {
-      const r = await fetch(`/api/admin/receipt/records?type=${tp}`, { signal: AbortSignal.timeout(15000) });
+    return fetch(`/api/admin/receipt/records?type=${tp}`, { signal: AbortSignal.timeout(15000) }).then(async (r) => {
       const json = await r.json();
       if (version !== loadVersion.current) return;
+      setErr(null);
       if (!r.ok) {
         setErr(json.error || t("forbidden"));
         setRows([]);
@@ -44,13 +39,13 @@ export default function AdminReceiptsPage() {
           ` · ${String(x.status ?? "")}`,
       }));
       setRows(mapped);
-    } catch {
+    }).catch(() => {
       if (version !== loadVersion.current) return;
       setErr(lang === "ur" ? "ریکارڈ لوڈ نہیں ہو سکے۔ دوبارہ کوشش کریں۔" : "Could not load records. Please try again.");
       setRows([]);
-    } finally {
+    }).finally(() => {
       if (version === loadVersion.current) setLoading(false);
-    }
+    });
   }, [t, lang]);
 
   useEffect(() => {
@@ -60,6 +55,7 @@ export default function AdminReceiptsPage() {
 
   const generate = async () => {
     if (!selectedId) return;
+    const version = ++loadVersion.current;
     setLoading(true);
     setErr(null);
     setReceipt(null);
@@ -71,15 +67,17 @@ export default function AdminReceiptsPage() {
         signal: AbortSignal.timeout(15000),
       });
       const json = await r.json();
+      if (version !== loadVersion.current) return;
       if (!r.ok || !json.ok) {
         setErr(json.error || t("forbidden"));
       } else {
         setReceipt(json.receipt as ReceiptData);
       }
     } catch {
+      if (version !== loadVersion.current) return;
       setErr(t("forbidden"));
     } finally {
-      setLoading(false);
+      if (version === loadVersion.current) setLoading(false);
     }
   };
 
@@ -93,7 +91,7 @@ export default function AdminReceiptsPage() {
           {(["deposit", "payout"] as const).map((tp) => (
             <button
               key={tp}
-              onClick={() => setType(tp)}
+              onClick={() => { if (tp !== type) { setLoading(true); setRows([]); setErr(null); setSelectedId(""); setReceipt(null); setType(tp); } }}
               className={`px-4 py-2 rounded-xl text-sm font-bold border ${
                 type === tp
                   ? "bg-lime-400/20 text-lime-300 border-lime-400/40"
@@ -123,7 +121,7 @@ export default function AdminReceiptsPage() {
 
         {err && <div role="alert" className="space-y-2">
           <p className="text-sm text-red-400">{err}</p>
-          <button type="button" onClick={() => loadRecords(type)} disabled={loading} className="text-sm underline">
+          <button type="button" onClick={() => { setLoading(true); setErr(null); void loadRecords(type); }} disabled={loading} className="text-sm underline">
             {lang === "ur" ? "دوبارہ کوشش کریں" : "Try again"}
           </button>
         </div>}

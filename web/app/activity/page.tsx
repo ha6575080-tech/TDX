@@ -84,23 +84,21 @@ export default function ActivityPage() {
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch("/api/transactions");
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
+  const load = useCallback(() => fetch("/api/transactions").then(async (loadedResponse) => {
+setError(null);
+const res = loadedResponse;
+const data = await res.json().catch(() => null);
+if (!res.ok) {
         const info = extractErrorInfo(data?.error ?? null, "Could not load your transactions.");
         setError(info.friendly);
         setTxs([]);
         return;
       }
-      setTxs(data.transactions ?? []);
-    } catch {
+setTxs(data.transactions ?? []);
+}).catch(() => {
       setError(isUr ? "نیٹ ورک کا مسئلہ۔ دوبارہ کوشش کریں۔" : "A network problem occurred. Please try again.");
       setTxs([]);
-    }
-  }, [isUr]);
+    }), [isUr]);
 
   useEffect(() => { load(); }, [load]);
 

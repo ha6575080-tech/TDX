@@ -341,12 +341,6 @@ export async function POST(request: Request) {
     receiptUrl: receiptSignedUrl,
   });
 
-  let packageName = "Investment";
-  if (deposit.package_id) {
-    const { data: pkg } = await supabase.from("packages").select("package_name").eq("id", deposit.package_id).single();
-    packageName = pkg?.package_name ?? "Investment";
-  }
-
   await sendAdminEmail({
     fullName: profile?.full_name ?? "Unknown",
     username: profile?.username ?? "Unknown",

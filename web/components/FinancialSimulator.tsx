@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, Info, TrendingUp, Target, CheckCircle2, Clock } from "lucide-react";
 import { GlassPanel } from "@/components/ui";
 import {
-  LIMITS,
   runSimulation,
   sanitizeInput,
   type SimulatorInput,
@@ -21,11 +20,7 @@ function fmtPKR(n: number): string {
   return `${Math.round(n).toLocaleString("en-PK")} PKR`;
 }
 
-function monthLabel(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
-  return d.toLocaleDateString("en-PK", { month: "short", year: "numeric" });
-}
+
 
 function ScenarioLineChart({
   scenarios,
@@ -123,7 +118,7 @@ function Control({
     if (raw.trim() !== "" && Number.isFinite(n)) onChange(n);
   };
 
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+  
 
   return (
     <div>

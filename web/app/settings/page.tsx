@@ -9,7 +9,7 @@ import { TopNav, BottomNav, GlassPanel, LanguageToggle } from "@/components/ui";
 export default function SettingsPage() {
   const router = useRouter();
   const supabase = createClient();
-  const { t, lang } = useI18n();
+  const { lang } = useI18n();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 

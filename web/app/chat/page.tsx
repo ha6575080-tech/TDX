@@ -29,33 +29,29 @@ export default function ChatPage() {
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const loadMessages = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {
+  const loadMessages = useCallback(() => supabase.auth.getUser().then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const {
         data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      } = loadedResponse;
+if (!user) {
         router.push("/login");
         return;
       }
-      setUserId(user.id);
-
-      const { data, error } = await supabase
+setUserId(user.id);
+const { data, error } = await supabase
         .from("messages")
         .select("id, sender, message, message_ur, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setMessages((data ?? []) as ChatMessage[]);
-    } catch (err) {
+if (error) throw error;
+setMessages((data ?? []) as ChatMessage[]);
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load messages.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [router, supabase]);
+    }), [router, supabase]);
 
   useEffect(() => {
     loadMessages();
@@ -105,7 +101,7 @@ export default function ChatPage() {
         setSending(false);
       }
     },
-    [userId, input, sending]
+    [userId, input, sending, lang]
   );
 
   const displayText = (m: ChatMessage) =>

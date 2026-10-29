@@ -9,7 +9,7 @@ import nodemailer from "nodemailer";
 
 const SMTP_USER = process.env.SMTP_USER ?? "";
 const SMTP_PASS = process.env.SMTP_PASS ?? "";
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "ha6575080@gmail.com";
+
 
 /**
  * Create an in-app notification for a specific member and attempt best-effort
@@ -79,9 +79,7 @@ function nextDayISO(date: Date): string {
 function formatDateGB(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-GB");
 }
-function formatDatePK(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString("en-PK");
-}
+
 
 export async function GET() {
   const { error } = await requireAdmin();
@@ -197,7 +195,7 @@ export async function POST(request: Request) {
     const nowISO = approvalNow.toISOString();
     const cycleStartISO = nextDayISO(approvalNow);
     const cycleStartDateGB = formatDateGB(cycleStartISO);
-    const cycleStartDatePK = formatDatePK(cycleStartISO);
+    
     const invoiceUrl = `/invoice/${depositId}`;
 
     const { data: updatedRows, error: updateDepositError } = await supabase
