@@ -339,8 +339,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
-  // Super Admin member-status control: pending change awaiting confirmation
-  // (Suspend / Deactivate ask for confirmation; Activate applies directly).
+  // Only suspension waits for confirmation; Active and Inactive save directly.
   const [statusPending, setStatusPending] = useState<{
     user: UserRow;
     target: MemberStatus;
@@ -487,9 +486,11 @@ setUpgrades(ug.upgrades ?? []);
     async (u: UserRow, target: MemberStatus, reason?: string) => {
       setStatusBusy(true);
       setError(null);
+      setActionMsg(null);
       try {
         const res = await fetch("/api/admin/users", {
           method: "POST",
+          signal: AbortSignal.timeout(15000),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: u.id,
@@ -501,6 +502,10 @@ setUpgrades(ug.upgrades ?? []);
         const data = await res.json();
         if (!res.ok) {
           setError(data.error ?? "Failed to change member status");
+          return;
+        }
+        if (data.success !== true || typeof data.is_active !== "boolean" || typeof data.is_suspended !== "boolean" || deriveMemberStatus(data) !== target) {
+          setError("The requested status was not saved. Refresh the users list and try again.");
           return;
         }
         setUsers((prev) =>
@@ -531,17 +536,17 @@ setUpgrades(ug.upgrades ?? []);
     [t, statusHistoryUser, loadStatusHistory]
   );
 
-  // Entry point from the row buttons. Activate applies immediately;
-  // Suspend / Deactivate (Inactive) ask for confirmation first, per policy.
+  // Active and Inactive are reversible status changes and save directly.
+  // Suspension still requires confirmation before blocking member access.
   const requestStatus = useCallback(
     (u: UserRow, target: MemberStatus) => {
       const current = deriveMemberStatus(u);
       if (current === target) return;
-      if (target === "active") {
-        applyStatus(u, "active");
-      } else {
+      if (target === "suspended") {
         setStatusReason("");
         setStatusPending({ user: u, target });
+      } else {
+        applyStatus(u, target);
       }
     },
     [applyStatus]
@@ -855,12 +860,12 @@ setUpgrades(ug.upgrades ?? []);
         </div>
 
         {actionMsg && (
-          <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 text-sm text-primary">
+          <div role="status" className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 text-sm text-primary">
             {actionMsg}
           </div>
         )}
         {error && (
-          <div className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
+          <div role="alert" className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
             {error}
           </div>
         )}
@@ -1052,8 +1057,8 @@ setUpgrades(ug.upgrades ?? []);
                           </button>
                           {/* Status controls: Active / Inactive / Suspended.
                               The CURRENT status is highlighted + disabled;
-                              Suspend/Inactive ask for confirmation; Activate
-                              applies immediately. Works for ANY member
+                              Active/Inactive save directly; suspension asks
+                              for confirmation. Works for ANY member
                               regardless of deposits or receipts. */}
                           {(["active", "inactive", "suspended"] as const).map((s) => {
                             const isCurrent = deriveMemberStatus(u) === s;
@@ -1081,6 +1086,7 @@ setUpgrades(ug.upgrades ?? []);
                                     : "bg-surface-bright text-on-surface-variant border border-outline-variant/40 hover:bg-surface-container-high"
                                 }`}
                               >
+                                {isCurrent && <Check aria-hidden="true" className="w-3 h-3 mr-1 inline" />}
                                 {statusLabel(t, s)}
                               </button>
                             );
@@ -1862,7 +1868,7 @@ setUpgrades(ug.upgrades ?? []);
         </div>
       )}
 
-      {/* Status change CONFIRMATION modal — Suspend / Deactivate only */}
+      {/* Status change confirmation — suspension only */}
       {statusPending && (
         <div
           className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm overflow-y-auto p-6"

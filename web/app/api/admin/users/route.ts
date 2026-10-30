@@ -113,11 +113,18 @@ async function fallbackDirectStatusChange(
     return { error: internalError("admin/users", updateError), response: null };
   }
 
-  const { data: updated } = await supabase
+  const { data: updated, error: readError } = await supabase
     .from("profiles")
     .select("is_active, is_suspended")
     .eq("id", userId)
     .single();
+
+  if (readError || !updated) {
+    return { error: internalError("admin/users", readError ?? new Error("Status readback missing")), response: null };
+  }
+  if (deriveMemberStatus(updated) !== target) {
+    return { error: NextResponse.json({ error: "The requested status was not saved. Refresh the users list and try again." }, { status: 409 }), response: null };
+  }
 
   return {
     error: null,
@@ -126,8 +133,8 @@ async function fallbackDirectStatusChange(
       changed: true,
       status: target,
       previous_status: previous,
-      is_active: updated?.is_active ?? false,
-      is_suspended: updated?.is_suspended ?? false,
+      is_active: updated.is_active,
+      is_suspended: updated.is_suspended,
     }),
   };
 }
@@ -274,17 +281,20 @@ export async function POST(request: Request) {
       .select("is_active, is_suspended")
       .eq("id", userId)
       .single();
-    if (readError) {
-      return internalError("admin/users", readError);
+    if (readError || !updated) {
+      return internalError("admin/users", readError ?? new Error("Status readback missing"));
+    }
+    if (deriveMemberStatus(updated) !== target) {
+      return NextResponse.json({ error: "The requested status was not saved. Refresh the users list and try again." }, { status: 409 });
     }
 
     return NextResponse.json({
       success: true,
       changed: res.changed,
-      status: res.status,
+      status: deriveMemberStatus(updated),
       previous_status: res.previous_status,
-      is_active: updated?.is_active ?? false,
-      is_suspended: updated?.is_suspended ?? false,
+      is_active: updated.is_active,
+      is_suspended: updated.is_suspended,
     });
   }
 
