@@ -7,7 +7,7 @@ import { seedDatabase, a, admin } from "./support/database-fixture.mjs";
 
 // CI uses a disposable PostgreSQL service containing only synthetic fixtures.
 // Never supply a production database URL to this test.
-test("simultaneous task requests create five tasks and charge a missed day once", { skip: !process.env.POSTGRES_TEST_URL }, async () => {
+test("simultaneous task, approval, and reminder requests stay idempotent", { skip: !process.env.POSTGRES_TEST_URL }, async () => {
   const connectionString = process.env.POSTGRES_TEST_URL;
   const url = new URL(connectionString);
   assert.ok(["localhost", "127.0.0.1", "postgres"].includes(url.hostname), "concurrency tests require a local disposable database");
@@ -19,7 +19,7 @@ test("simultaneous task requests create five tasks and charge a missed day once"
   const links = Array.from({ length: 5 }, (_, n) => `https://www.youtube.com/watch?v=abcdefghij${n}`);
   try {
     await seedDatabase({ exec: (sql) => one.query(sql), query: (sql, args) => one.query(sql, args) });
-    for (const name of ["20261029102849_restore_required_app_schema", "20261029103017_financial_access_after_schema_repair", "20261029121152_enforce_funded_investment_upgrades", "20261029121459_atomic_member_tasks", "20261030121313_atomic_admin_financial_decisions"]) {
+    for (const name of ["20261029102849_restore_required_app_schema", "20261029103017_financial_access_after_schema_repair", "20261029121152_enforce_funded_investment_upgrades", "20261029121459_atomic_member_tasks", "20261030121313_atomic_admin_financial_decisions", "20261030123801_reliable_reminder_delivery"]) {
       await one.query(await fs.readFile(path.resolve(import.meta.dirname, `../../supabase/migrations/${name}.sql`), "utf8"));
     }
     await one.query("insert into tasks(user_id,task_date,youtube_link) select $1,(now() at time zone 'Asia/Karachi')::date-1,link from unnest($2::text[]) link", [a, links]);
@@ -53,6 +53,16 @@ test("simultaneous task requests create five tasks and charge a missed day once"
     assert.equal(ignored.rows[0].result.reason, "already_processed");
     const audit = await one.query("select count(*) as n from financial_audit_log where entity='deposit' and entity_id=$1", [depositId]);
     assert.equal(Number(audit.rows[0].n), 1);
+    await one.query("update profiles set profit_activation_date=now()-interval '29 days 1 minute' where id=$1",[a]);
+    await one.query("begin");
+    const queued=await one.query("select queue_payout_reminders() as result");
+    await two.query("begin");
+    const duplicateReminder=two.query("select queue_payout_reminders() as result");
+    await one.query("commit");
+    const repeatedReminder=await duplicateReminder;
+    await two.query("commit");
+    assert.equal(queued.rows[0].result.in_app_sent,1);
+    assert.equal(repeatedReminder.rows[0].result.in_app_sent,0);
   } finally {
     await one.query("rollback").catch(() => {});
     await two.query("rollback").catch(() => {});

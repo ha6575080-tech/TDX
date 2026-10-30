@@ -194,3 +194,14 @@ Payout receipts now identify a completed withdrawal and display the actual net a
 Local lint and type checks pass. The local suite passes 63 of 64 tests plus all 37 status checks; the remaining real PostgreSQL concurrency case runs in CI. Production migration/deployment evidence for this release will be recorded after CI completes. No real member payment or external sharing is used for testing.
 
 Outstanding launch work: reminder retries and scheduling, migration-history reconciliation before merging main, external delivery verification, and backup/restore evidence. The older task, funding, and built-in-PDF-font findings are resolved by the releases above. This audit does not claim an error-free or unrestricted-launch clearance.
+
+
+## Deployed financial release evidence
+
+Production commit 4c00b6604add50b3c8783a4e1eb34d36bead7c56 is READY on tdx-plum.vercel.app (deployment dpl_2ZkK8VXLCqh3z1XRPLYB5wkLPriu). GitHub Actions run 41056359507 passed all 64 tests without skips and all 37 member-status checks, plus lint, type checks, and production build. The atomic admin financial migration is applied. Before/after ledger fingerprints match: deposits e59a7b2deac458550369f39f7b3f3998, withdrawals/returns d751713988987e9331980363e24189ce. The new financial functions cannot be invoked by member roles; the service role can invoke them.
+
+## Reliable reminder release (verification in progress)
+
+A durable, private outbox replaces the old claims-before-send implementation. It uses the canonical repeating member cycle and confirmed active funding, suppresses suspended/return-held/paid cycles, retries failures, expires worker leases, and identifies each monthly cycle separately. In-app insertion and acknowledgement are transactional per job. Email uses leased retries and stable Message-ID; SMTP cannot guarantee exactly-once delivery after an ambiguous transport failure. Reminders do not assume an unselected 8% rate or write any money. A protected SMTP connection probe sends no message. The scheduler uses Supabase pg_cron/pg_net and a Vault credential, following https://supabase.com/docs/guides/functions/schedule-functions. Access to HTTP request headers is explicitly denied to API roles. No secret is committed.
+
+CI action releases are verified against official v6 refs and pinned. The obsolete unconfigured nested TDX gitlink is removed from the release tree to fix checkout cleanup. Database health checks specify the test database/user. Browser-control and persistent Node tools currently fail to initialize; authenticated live visual checks of the latest release remain pending. Earlier production receipt downloads and current synthetic export checks are recorded above.

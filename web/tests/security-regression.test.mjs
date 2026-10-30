@@ -128,6 +128,22 @@ test("cron fails closed when CRON_SECRET is absent", async () => {
   const subject = load("app/api/cron/payout-reminders/route.ts", { "@/lib/api-errors": errorMocks });
   assert.equal((await subject.GET(new Request("https://tdx.example/api/cron/payout-reminders", { headers: { authorization: "Bearer undefined" } }))).status, 401);
 });
+test("protected SMTP connection check does not send email or queue reminders",async()=>{
+  let checked=false;
+  const subject=load("app/api/cron/payout-reminders/route.ts",{nodemailer:{createTransport:()=>({verify:async()=>{checked=true;},close:()=>{}})},"@/lib/api-errors":errorMocks},{process:{env:{CRON_SECRET:"fixture",NEXT_PUBLIC_SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"fixture",SMTP_USER:"sender@example.test",SMTP_PASS:"fixture"}}});
+  const response=await subject.GET(new Request("https://tdx.example/api/cron/payout-reminders?check=email",{headers:{authorization:"Bearer fixture"}}));
+  assert.equal(response.status,200);assert.equal(checked,true);
+});
+for (const deliveryFails of [false,true]) test(`reminder email ${deliveryFails ? "failure is retryable" : "success is acknowledged"}`,async()=>{
+  let acknowledgement,closed=false;
+  const client={rpc:async(name,args)=>name==="queue_payout_reminders"?{data:{queued:2,in_app_sent:1},error:null}:name==="claim_payout_reminder_emails"?{data:[{id:"fixture-job",claim_token:"fixture-token",member_name:"Synthetic Member",cycle_end:"2026-10-31T10:00:00Z",stage:"24h"}],error:null}:(acknowledgement=args,{data:true,error:null})};
+  const transporter={sendMail:async()=>{if(deliveryFails)throw new Error("Synthetic SMTP failure");return {accepted:["admin@example.test"]};},close:()=>{closed=true;}};
+  const subject=load("app/api/cron/payout-reminders/route.ts",{"@supabase/supabase-js":{createClient:()=>client},nodemailer:{createTransport:()=>transporter},"@/lib/api-errors":errorMocks},{process:{env:{CRON_SECRET:"fixture",NEXT_PUBLIC_SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"fixture",SMTP_USER:"sender@example.test",SMTP_PASS:"fixture",ADMIN_EMAIL:"admin@example.test"}}});
+  const response=await subject.GET(new Request("https://tdx.example/api/cron/payout-reminders",{headers:{authorization:"Bearer fixture"}}));
+  assert.equal(response.status,deliveryFails?503:200);
+  assert.equal(acknowledgement.p_success,!deliveryFails);assert.equal(closed,true);
+  assert.equal((await response.json()).email_failed,deliveryFails?1:0);
+});
 test("proxy blocks cross-origin mutations and permits same-origin or authenticated non-browser requests", async () => {
   const subject = load("proxy.ts", { "@/lib/supabase/middleware": { updateSession: async () => ({ kind: "session" }) } });
   const req = (origin, site) => ({ method: "POST", nextUrl: new URL("https://tdx.example/api/goals"), headers: new Headers({ ...(origin ? { origin } : {}), ...(site ? { "sec-fetch-site": site } : {}) }) });

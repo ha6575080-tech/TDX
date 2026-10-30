@@ -11,9 +11,8 @@ import { internalError } from "@/lib/api-errors";
  * All balance math happens here, server-side — the browser only displays
  * these numbers and must never construct them itself.
  *
- * The math itself lives in lib/account-summary.ts (pure code motion —
- * expressions are verbatim-identical to the previous inline version) so
- * that goal progress can reuse the exact same authoritative numbers.
+ * Shared booked-balance math lives in lib/account-summary.ts so goal
+ * progress and dashboard balances use the same financial records.
  */
 export async function GET() {
   const { user, error } = await requireUser();
