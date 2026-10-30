@@ -290,6 +290,14 @@ test("account balances exclude rejected withdrawals, unearned profits, and retur
   assert.equal(returned.withdrawableBalance, 0);
   assert.equal(returned.activeInvestment, 0);
 });
+test("future activation displays cycle one and keeps withdrawal controls closed",()=>{
+  const {calculateProfitCycle}=load("lib/profit-cycle.ts");
+  const now=Date.parse("2026-10-31T10:00:00Z"),anchor=now+86400000;
+  const future=calculateProfitCycle(anchor,now);
+  assert.equal(future.cycleNumber,1);assert.equal(future.actionableNow,false);assert.equal(Date.parse(future.cycleStart),anchor);
+  assert.equal(calculateProfitCycle(anchor,anchor+29*86400000).actionableNow,true);
+  assert.equal(calculateProfitCycle(NaN,now),null);
+});
 test("statement outages return an error instead of fabricated zero balances",async()=>{
   const result={data:null,error:{message:"Synthetic private database failure"}};
   const subject=load("app/api/statements/route.ts",{"@/lib/auth":okAuth,"@/lib/supabase/server":{createClient:async()=>({rpc:async()=>result})},"@/lib/api-errors":errorMocks});

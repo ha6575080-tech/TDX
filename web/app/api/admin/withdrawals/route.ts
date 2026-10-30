@@ -144,8 +144,14 @@ export async function POST(request: Request) {
     };
 
     if (!result?.ok) {
+      const messages: Record<string, string> = {
+        account_suspended: "This member is suspended. Payment cannot be completed.",
+        return_investment_hold: "An investment-return request is holding this payment.",
+        not_eligible_30_days: "The member's profit cycle is not eligible for payment yet.",
+        invalid_profit_cycle: "This request has invalid cycle dates. Review it before proceeding.",
+      };
       return NextResponse.json(
-        { error: result?.reason ?? "Completion failed." },
+        { error: messages[result?.reason ?? ""] ?? result?.reason ?? "Completion failed." },
         { status: 409 }
       );
     }

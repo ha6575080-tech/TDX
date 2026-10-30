@@ -19,7 +19,7 @@ test("simultaneous task, approval, and reminder requests stay idempotent", { ski
   const links = Array.from({ length: 5 }, (_, n) => `https://www.youtube.com/watch?v=abcdefghij${n}`);
   try {
     await seedDatabase({ exec: (sql) => one.query(sql), query: (sql, args) => one.query(sql, args) });
-    for (const name of ["20261029102849_restore_required_app_schema", "20261029103017_financial_access_after_schema_repair", "20261029121152_enforce_funded_investment_upgrades", "20261029121459_atomic_member_tasks", "20261030121313_atomic_admin_financial_decisions", "20261030123801_reliable_reminder_delivery"]) {
+    for (const name of ["20261029102849_restore_required_app_schema", "20261029103017_financial_access_after_schema_repair", "20261029121152_enforce_funded_investment_upgrades", "20261029121459_atomic_member_tasks", "20261030121313_atomic_admin_financial_decisions", "20261030123801_reliable_reminder_delivery", "20261030190844_prevent_preactivation_profit_withdrawal"]) {
       await one.query(await fs.readFile(path.resolve(import.meta.dirname, `../../supabase/migrations/${name}.sql`), "utf8"));
     }
     await one.query("insert into tasks(user_id,task_date,youtube_link) select $1,(now() at time zone 'Asia/Karachi')::date-1,link from unnest($2::text[]) link", [a, links]);
@@ -63,6 +63,16 @@ test("simultaneous task, approval, and reminder requests stay idempotent", { ski
     await two.query("commit");
     assert.equal(queued.rows[0].result.in_app_sent,1);
     assert.equal(repeatedReminder.rows[0].result.in_app_sent,0);
+    const withdrawal=(await one.query("insert into withdrawals(user_id,status,cycle_number,cycle_start,cycle_end) select $1,'pending',c.cycle_number,c.cycle_start,c.cycle_end from withdrawal_current_cycle($1) c returning id",[a])).rows[0].id;
+    await one.query("begin");
+    await one.query("update profiles set is_suspended=true where id=$1",[a]);
+    let paymentFinished=false;
+    const payment=two.query("select complete_profit_withdrawal($1,8,$2) as result",[withdrawal,admin]).then(r=>{paymentFinished=true;return r;});
+    await new Promise(resolve=>setTimeout(resolve,100));
+    assert.equal(paymentFinished,false);
+    await one.query("commit");
+    assert.equal((await payment).rows[0].result.reason,"account_suspended");
+    assert.equal((await one.query("select status from withdrawals where id=$1",[withdrawal])).rows[0].status,"pending");
   } finally {
     await one.query("rollback").catch(() => {});
     await two.query("rollback").catch(() => {});

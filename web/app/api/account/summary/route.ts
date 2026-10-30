@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { calculateProfitCycle } from "@/lib/profit-cycle";
 import { computeSummaryTotals } from "@/lib/account-summary";
 import { internalError } from "@/lib/api-errors";
 
@@ -131,21 +132,7 @@ export async function GET() {
     if (anchors.length > 0) anchorMs = Math.min(...anchors);
   }
 
-  if (anchorMs != null && activeInvestment > 0) {
-    const nowMs = Date.now();
-    const DAY = 24 * 60 * 60 * 1000;
-    const cycleIndex = Math.floor((nowMs - anchorMs) / (30 * DAY));
-    const cycleStartMs = anchorMs + cycleIndex * 30 * DAY;
-    const cycleEndMs = cycleStartMs + 30 * DAY;
-    const actionableAtMs = cycleEndMs - DAY;
-    cycle = {
-      cycleNumber: cycleIndex + 1,
-      cycleStart: new Date(cycleStartMs).toISOString(),
-      cycleEnd: new Date(cycleEndMs).toISOString(),
-      actionableAt: new Date(actionableAtMs).toISOString(),
-      actionableNow: nowMs >= actionableAtMs,
-    };
-  }
+  if (activeInvestment > 0) cycle = calculateProfitCycle(anchorMs);
 
   return NextResponse.json({
     profile,
