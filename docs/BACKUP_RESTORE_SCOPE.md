@@ -1,6 +1,6 @@
 # TDX encrypted backup and isolated restore test
 
-This action is prepared but has not run: automatic approval review rejected production-data export without specific approval for its contents and destination.
+The user explicitly authorized this exact payload, destination and isolated restore test on 30 October 2026 after automatic review requested specific approval. The encrypted export and restore verification are complete. All 21 tables and 111 rows matched their fingerprints; all foreign-key checks passed.
 
 Source: TDX Supabase project jgbbifiizezrwvesdisc.
 

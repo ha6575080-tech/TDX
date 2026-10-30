@@ -242,3 +242,8 @@ Actions run 41062421241 passed all 78 tests without skips plus 37 member-status 
 The staged statement repair replaces the legacy built-in PDF fonts and CSS screenshot path with paginated branded English/Urdu artwork. PDF, Word and PNG pages contain the complete document; multiple PNG pages are delivered as one ZIP. Word images include full-page text descriptions. Fees, net withdrawals and principal returns are explicit, and missing rates/amounts remain unknown. Download failures are visible and logo loading is bounded. Obsolete direct html2canvas/autotable dependencies are removed; the existing ZIP dependency is declared for production.
 
 A read-only, invoker-rights member_statement_snapshot RPC captures all statement rows and totals in one SQL snapshot. It avoids REST row-limit truncation, filters ownership from the session, denies suspended or anonymous access, and avoids duplicated legacy profit totals. Local tests include 1,100 deposit records, separate-member sessions, net/fee/return totals, and multi-page exports. Production rollout is pending CI. The blocked backup export has not been retried or exported.
+
+
+## Final verified continuation
+
+See RELEASE_READINESS_20261030.md for the current consolidated status. The statement release d537980ff67ba2f81d66b47ac9991d3de51b6e34 is READY; CI passed all 87 tests plus all 37 status checks. The read-only snapshot migration is applied. The user explicitly approved the encrypted backup scope; export and isolated restore are complete, matching all 21 tables / 111 rows and all foreign keys. Earlier pending-approval statements above are historical and resolved. The backup excludes real authentication credentials and uploaded-file contents. Browser/provider/migration-history launch checks remain open.
