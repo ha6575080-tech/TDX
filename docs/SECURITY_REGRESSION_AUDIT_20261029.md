@@ -247,3 +247,8 @@ A read-only, invoker-rights member_statement_snapshot RPC captures all statement
 ## Final verified continuation
 
 See RELEASE_READINESS_20261030.md for the current consolidated status. The statement release d537980ff67ba2f81d66b47ac9991d3de51b6e34 is READY; CI passed all 87 tests plus all 37 status checks. The read-only snapshot migration is applied. The user explicitly approved the encrypted backup scope; export and isolated restore are complete, matching all 21 tables / 111 rows and all foreign keys. Earlier pending-approval statements above are historical and resolved. The backup excludes real authentication credentials and uploaded-file contents. Browser/provider/migration-history launch checks remain open.
+
+
+## 31 October withdrawal timing and live-state guards
+
+A future profit activation date previously produced cycle zero and could allow an immediate request. The production-schema fixture reproduced it. The forward repair schedules cycle one, adds profile-first payment locking and rechecks suspension, return holds and stored-cycle timing. CI run 41114782794 passed 96 tests with no failures/skips plus 37 member-status checks, lint, types and production build. PostgreSQL concurrency confirms payment waits for a concurrent suspension and rejects it after commit. Migration applied; production release bc9b29281d43991f1793ffeec21c0e4a003b47cd / dpl_8EKATQg2B1dKgMCYx6HFoHqT7g2u is READY. Live function checks passed and the deposit fingerprint is unchanged. See RELEASE_READINESS_20261030.md for remaining launch checks.
