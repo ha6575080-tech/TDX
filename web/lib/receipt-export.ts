@@ -3,6 +3,7 @@ export interface ReceiptData {
   username: string; city: string; amount: number | null; status: string;
   date: string | null; percentage?: number | null; month?: number | null;
   year?: number | null; language: "en" | "ur";
+  grossAmount?: number | null; fee?: number | null; recordKind?: "transaction" | "monthly_summary";
 }
 export function receiptFilename(data: ReceiptData, extension: string): string {
   return `TDX-${data.type}-${data.id.replace(/[^a-zA-Z0-9-]/g, "").slice(0, 8)}.${extension}`;
@@ -11,14 +12,17 @@ export function receiptRows(data: ReceiptData, isUr: boolean): Array<[string, st
   const date = data.date && Number.isFinite(new Date(data.date).getTime())
     ? new Intl.DateTimeFormat(isUr ? "ur-PK" : "en-PK", { timeZone: "Asia/Karachi" }).format(new Date(data.date)) : "—";
   const rows: Array<[string, string]> = [
-    [isUr ? "نوع" : "Type", data.type === "deposit" ? (isUr ? "ڈپازٹ" : "DEPOSIT") : (isUr ? "ادائیگی" : "PAYOUT")],
+    [isUr ? "نوع" : "Type", data.recordKind === "monthly_summary" ? (isUr ? "ماہانہ منافع کا ریکارڈ" : "MONTHLY PROFIT RECORD") : data.type === "deposit" ? (isUr ? "ڈپازٹ" : "DEPOSIT") : (isUr ? "ادائیگی" : "PAYOUT")],
     [isUr ? "صارف" : "Member", data.user], [isUr ? "موبائل" : "Mobile", data.mobile || "—"],
     [isUr ? "صارف نام" : "Username", data.username || "—"], [isUr ? "شہر" : "City", data.city || "—"],
-    [isUr ? "رقم" : "Amount", `Rs ${Number(data.amount ?? 0).toLocaleString("en-PK")}`],
+    [isUr ? "رقم" : "Amount", data.amount == null ? "—" : `Rs ${Number(data.amount).toLocaleString("en-PK")}`],
     [isUr ? "حالت" : "Status", data.status],
   ];
   if (data.percentage != null && [7, 8, 9, 10].includes(Number(data.percentage))) rows.push([isUr ? "فیصد" : "Percentage", `${data.percentage}%`]);
+  if (data.month && data.year) rows.push([isUr ? "مدت" : "Period", `${String(data.month).padStart(2,"0")}/${data.year}`]);
   rows.push([isUr ? "تاریخ" : "Date", date], ["ID", data.id]);
+  if (data.grossAmount != null) rows.push([isUr ? "مجموعی منافع" : "Gross profit", `Rs ${data.grossAmount.toLocaleString("en-PK")}`]);
+  if (data.fee != null) rows.push([isUr ? "نکاسی فیس" : "Withdrawal fee", `Rs ${data.fee.toLocaleString("en-PK")}`]);
   return rows;
 }
 
@@ -60,14 +64,15 @@ export async function createReceiptImage(data: ReceiptData, isUr: boolean): Prom
   ctx.fillStyle = gold; ctx.fillRect(30, 244, 1140, 4);
   ctx.drawImage(logo, 70, 64, 142, 142);
   text("TDX INVESTMENT", 240, 124, 43, "#fff", true, "left", 830);
-  text(isUr ? "ٹرانزیکشن رسید" : "TRANSACTION RECEIPT", 240, 173, 23, "#d6e4dd", false, "left", 830, isUr);
+  text(data.recordKind === "monthly_summary" ? (isUr ? "ماہانہ منافع کا ریکارڈ" : "MONTHLY PROFIT RECORD") : (isUr ? "ٹرانزیکشن رسید" : "TRANSACTION RECEIPT"), 240, 173, 23, "#d6e4dd", false, "left", 830, isUr);
   text(isUr ? "حوالہ نمبر" : "TRANSACTION REFERENCE", 72, 295, 18, muted, true);
   text(data.id, 72, 330, 25, ink, true);
 
   ctx.fillStyle = "#eef4f0"; ctx.fillRect(72, 366, 1056, 170);
   ctx.fillStyle = green; ctx.fillRect(72, 366, 6, 170);
-  text(isUr ? "رقم پاکستانی روپے" : "AMOUNT  /  PKR", 104, 412, 21, muted, true, "left", 980, isUr);
+  text(data.type === "payout" && data.recordKind !== "monthly_summary" ? (isUr ? "خالص ادا شدہ رقم" : "NET PAID  /  PKR") : (isUr ? "رقم پاکستانی روپے" : "AMOUNT  /  PKR"), 104, 412, 21, muted, true, "left", 980, isUr);
   text(data.amount == null || !Number.isFinite(Number(data.amount)) ? "—" : Number(data.amount).toLocaleString("en-PK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), 104, 492, 68, green, true, "left", 980);
+  if (data.grossAmount != null && data.fee != null) text(isUr ? `مجموعی منافع: ${data.grossAmount.toLocaleString("en-PK")}  •  فیس: ${data.fee.toLocaleString("en-PK")}` : `Gross profit: Rs ${data.grossAmount.toLocaleString("en-PK")}  •  Fee: Rs ${data.fee.toLocaleString("en-PK")}`, 104, 525, 18, muted, false, "left", 980, isUr);
 
   text(isUr ? "ممبر کی تفصیلات" : "MEMBER DETAILS", 72, 593, 20, green, true, "left", 1020, isUr);
   const memberRows = rows.slice(1, 5);
@@ -77,7 +82,7 @@ export async function createReceiptImage(data: ReceiptData, isUr: boolean): Prom
     text(value, x, y + 37, 28, ink, true, "left", 480, isUr && !/^[0-9+ -]+$/.test(value));
   });
   line(810);
-  const detailRows = [rows[0], ...rows.slice(6).filter(([label]) => label !== "ID")];
+  const detailRows = [rows[0], ...rows.slice(6).filter(([label]) => !["ID","Gross profit","Withdrawal fee","مجموعی منافع","نکاسی فیس"].includes(label))];
   detailRows.forEach(([label, value], index) => {
     const y = 859 + index * 60;
     text(label, 72, y, 22, muted, false, "left", 400, isUr);

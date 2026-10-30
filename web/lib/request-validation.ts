@@ -8,6 +8,10 @@ export async function readJsonObject<T extends object>(request: Request): Promis
 }
 
 /** Private evidence files have exactly one filename inside the owner's folder. */
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value);
+}
+
 export function isOwnedObjectPath(path: unknown, userId: string): path is string {
   if (typeof path !== "string" || path.length > 512 || !path.startsWith(`${userId}/`)) return false;
   const filename = path.slice(userId.length + 1);

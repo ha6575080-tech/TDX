@@ -1380,7 +1380,7 @@ setUpgrades(ug.upgrades ?? []);
             <div>
               <h2 className="mb-3 text-lg font-bold text-secondary">{t("payouts")}</h2>
               <p className="mb-3 rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 text-xs text-on-surface-variant">
-                Per-user monthly profit ledger (profits). Per-deposit payouts are processed via <code className="px-1 py-0.5 bg-surface-bright rounded">/api/admin/payouts/process</code> (payouts table) — same user/month cannot be paid via both ledgers.
+                Payment history is recorded automatically when a monthly profit withdrawal is completed. Review withdrawals to record a payment.
               </p>
               {pendingPayouts.length === 0 && (
                 <GlassPanel className="p-6"><p className="text-sm text-on-surface-variant">{t("noPendingPayouts")}</p></GlassPanel>
@@ -1406,8 +1406,8 @@ setUpgrades(ug.upgrades ?? []);
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => handlePayout(p, "payout")} className="btn-3d-lime h-9 rounded-lg px-4 text-sm font-bold">
-                      <Check className="w-4 h-4 mr-1 inline" /> {t("payoutSent")}
+                    <button onClick={() => setTab("withdrawals")} className="btn-3d-lime h-9 rounded-lg px-4 text-sm font-bold">
+                      Review withdrawals
                     </button>
                     {p.dueSoon && (
                       <button onClick={() => handlePayout(p, "remind")} className="h-9 rounded-lg bg-secondary/10 px-4 text-sm font-semibold text-secondary border border-secondary/30 hover:bg-secondary/20">

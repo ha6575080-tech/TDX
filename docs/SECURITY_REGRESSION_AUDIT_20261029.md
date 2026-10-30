@@ -130,7 +130,7 @@ external sharing of actual member data was not performed. Other member actions
 and real external email/push delivery remain unverified.
 
 
-## Remaining engineering risks
+## Initial engineering risks (see subsequent resolution updates)
 
 - Financial approval/payout paths still contain multi-request transitions that
   should be moved into database transactions, including cross-ledger concurrency.
@@ -181,3 +181,16 @@ The admin-only read-only cash-flow report and approved-funding guards are now in
 The staged task repair serializes creation, missed-day deductions and evidence completion using the same profile lock. Local tests show five daily tasks, one deduction per missed day, real uploaded evidence required, and immutable evidence on replay. The full local suite currently passes 54 tests plus the 37 existing status checks; one real PostgreSQL concurrency test is reserved for CI with a disposable local PostgreSQL service. The task migration is not applied yet, pending that CI result.
 
 Remaining launch blockers include non-atomic admin financial approval/return paths, reminder delivery retries/scheduler accuracy, migration history reconciliation, external delivery checks, and backup/restore evidence. The historical risks above are not a statement that TDX is cleared for unrestricted launch.
+
+
+## Financial decision release — 30 October 2026
+
+The atomic task migration and reporting routes were deployed at d53bf06cd621613cde703e9654403d82596c7448. CI passed all 55 tests, including real PostgreSQL concurrency, plus 37 existing status checks.
+
+The next reviewed release makes deposit approval and investment-return decisions transactional, records notifications/audit entries in the same transaction, preserves suspension, and prevents a completed principal return from being requested again. Repeated approvals cannot produce duplicate financial events. Failed message insertion rolls back the complete decision. Two legitimate 30-day cycles ending in the same calendar month retain both payments in the profit ledger. Legacy duplicate payout writers are closed; the admin is directed to complete the monthly withdrawal. Account balances exclude rejected requests and unearned profit and subtract completed principal returns.
+
+Payout receipts now identify a completed withdrawal and display the actual net amount paid, gross profit, fee, selected rate, and period. Historical monthly profit records are clearly labelled as summaries. Deposit and payout exports in English and Urdu use identical branded artwork across PNG/PDF/Word, including support 0308-3958294 and the electronic issuance stamp. This stamp is not a certificate-based cryptographic signature. Synthetic samples were visually inspected.
+
+Local lint and type checks pass. The local suite passes 63 of 64 tests plus all 37 status checks; the remaining real PostgreSQL concurrency case runs in CI. Production migration/deployment evidence for this release will be recorded after CI completes. No real member payment or external sharing is used for testing.
+
+Outstanding launch work: reminder retries and scheduling, migration-history reconciliation before merging main, external delivery verification, and backup/restore evidence. The older task, funding, and built-in-PDF-font findings are resolved by the releases above. This audit does not claim an error-free or unrestricted-launch clearance.

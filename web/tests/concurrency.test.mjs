@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
-import { seedDatabase, a } from "./support/database-fixture.mjs";
+import { seedDatabase, a, admin } from "./support/database-fixture.mjs";
 
 // CI uses a disposable PostgreSQL service containing only synthetic fixtures.
 // Never supply a production database URL to this test.
@@ -19,8 +19,9 @@ test("simultaneous task requests create five tasks and charge a missed day once"
   const links = Array.from({ length: 5 }, (_, n) => `https://www.youtube.com/watch?v=abcdefghij${n}`);
   try {
     await seedDatabase({ exec: (sql) => one.query(sql), query: (sql, args) => one.query(sql, args) });
-    const migration = await fs.readFile(path.resolve(import.meta.dirname, "../../supabase/migrations/20261029121459_atomic_member_tasks.sql"), "utf8");
-    await one.query(migration);
+    for (const name of ["20261029102849_restore_required_app_schema", "20261029103017_financial_access_after_schema_repair", "20261029121152_enforce_funded_investment_upgrades", "20261029121459_atomic_member_tasks", "20261030121313_atomic_admin_financial_decisions"]) {
+      await one.query(await fs.readFile(path.resolve(import.meta.dirname, `../../supabase/migrations/${name}.sql`), "utf8"));
+    }
     await one.query("insert into tasks(user_id,task_date,youtube_link) select $1,(now() at time zone 'Asia/Karachi')::date-1,link from unnest($2::text[]) link", [a, links]);
     await one.query("begin");
     const first = await one.query("select ensure_member_tasks($1,$2) as result", [a, links]);
@@ -39,6 +40,19 @@ test("simultaneous task requests create five tasks and charge a missed day once"
     assert.equal(Number(totals.rows[0].total_deductions), 200);
     assert.equal(Number(totals.rows[0].daily_tasks_failed), 1);
     assert.equal(Number(totals.rows[0].today_count), 5);
+    const deposit = await one.query("insert into deposits(user_id,amount,status,payment_method,receipt_image_url) values ($1,5000,'pending','online_transfer',$2) returning id", [a, `${a}/approval.png`]);
+    const depositId = deposit.rows[0].id;
+    await one.query("begin");
+    const approved = await one.query("select admin_decide_deposit($1,$2,'approve') as result", [depositId, admin]);
+    await two.query("begin");
+    const duplicate = two.query("select admin_decide_deposit($1,$2,'approve') as result", [depositId, admin]);
+    await one.query("commit");
+    const ignored = await duplicate;
+    await two.query("commit");
+    assert.equal(approved.rows[0].result.ok, true);
+    assert.equal(ignored.rows[0].result.reason, "already_processed");
+    const audit = await one.query("select count(*) as n from financial_audit_log where entity='deposit' and entity_id=$1", [depositId]);
+    assert.equal(Number(audit.rows[0].n), 1);
   } finally {
     await one.query("rollback").catch(() => {});
     await two.query("rollback").catch(() => {});

@@ -65,8 +65,7 @@ export async function GET() {
           "id, amount, returned_amount, status, requested_at, approved_at, expected_return_date, completed_at"
         )
         .eq("user_id", userId)
-        .order("requested_at", { ascending: false })
-        .limit(1),
+        .order("requested_at", { ascending: false }),
       // Pending (or latest) investment upgrade.
       supabase
         .from("investment_upgrades")
@@ -96,7 +95,7 @@ export async function GET() {
     totalBalance,
     withdrawableBalance,
     activeInvestment: summaryActiveInvestment,
-  } = computeSummaryTotals(profile, deposits, profits, withdrawals);
+  } = computeSummaryTotals(profile, deposits, profits, withdrawals, returnsRes.data ?? []);
 
   const activeInvestment = summaryActiveInvestment;
 
@@ -133,7 +132,7 @@ export async function GET() {
     if (anchors.length > 0) anchorMs = Math.min(...anchors);
   }
 
-  if (anchorMs != null) {
+  if (anchorMs != null && activeInvestment > 0) {
     const nowMs = Date.now();
     const DAY = 24 * 60 * 60 * 1000;
     const cycleIndex = Math.floor((nowMs - anchorMs) / (30 * DAY));

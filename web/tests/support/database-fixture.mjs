@@ -41,6 +41,7 @@ export async function seedDatabase(db) {
       await db.exec(`create policy ${quote(policy.policyname)} on public.${quote(policy.tablename)} for ${policy.cmd} to ${policy.roles.map(quote).join(", ")} ${policy.qual ? `using (${policy.qual})` : ""} ${policy.with_check ? `with check (${policy.with_check})` : ""};`);
     }
     await db.exec("grant all on all tables in schema public to anon, authenticated, service_role;");
+    await db.exec(await read("supabase/migrations/20260830010000_fix_profiles_privilege_grants.sql"));
     await db.exec(await read("supabase/migrations/20260910000000_member_status_control.sql"));
     for (const id of [a, b, admin]) {
       await db.query("insert into auth.users(id) values ($1)", [id]);

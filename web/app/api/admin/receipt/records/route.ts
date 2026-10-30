@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   const supabase = await createServiceRoleClient();
   const { data, error: recordsError } = type === "deposit"
     ? await supabase.from("deposits").select("id, user_id, amount, status, uploaded_at").order("uploaded_at", { ascending: false }).limit(200)
-    : await supabase.from("profits").select("id, user_id, amount, status, month, year, payout_date").order("payout_date", { ascending: false }).limit(200);
+    : await supabase.from("withdrawals").select("id, user_id, amount:net_amount, status, processed_at").eq("status", "completed").order("processed_at", { ascending: false }).limit(200);
   if (recordsError) return internalError("admin/receipt/records", recordsError);
   const rows = data ?? [];
   if (rows.length === 0) return NextResponse.json({ records: [] });

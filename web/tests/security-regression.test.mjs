@@ -91,6 +91,7 @@ test("receipt picker reads the current schema without optional review columns or
     select: (columns) => {
       selections.push({ table, columns });
       return {
+        eq: () => ({ order: () => ({ limit: async () => ({ data: [], error: null }) }) }),
         order: () => ({ limit: async () => ({ data: table === "deposits" ? [{ id: "deposit-fixture", user_id: user.id, amount: 5000, status: "approved", uploaded_at: "2026-10-29" }] : [], error: null }) }),
         in: async () => ({ data: [{ id: user.id, full_name: "Fixture Member", username: "fixture" }], error: null }),
       };
@@ -231,4 +232,46 @@ test("financial reporting uses Pakistan calendar boundaries including the quarte
   const { reportStart } = load("lib/report-period.ts");
   const now = new Date("2026-10-29T10:00:00Z");
   for (const [period, expected] of Object.entries({ daily: "2026-10-28T19:00:00.000Z", weekly: "2026-10-22T19:00:00.000Z", monthly: "2026-09-30T19:00:00.000Z", quarterly: "2026-09-30T19:00:00.000Z", "6months": "2026-04-30T19:00:00.000Z", yearly: "2025-12-31T19:00:00.000Z" })) assert.equal(reportStart(period, now).toISOString(), expected);
+});
+test("account balances exclude rejected withdrawals, unearned profits, and returned principal", () => {
+  const { computeSummaryTotals } = load("lib/account-summary.ts");
+  const deposits = [{ amount: 5000, status: "approved" }];
+  const profits = [{ amount: 400, status: "paid" }, { amount: 10000, status: "pending" }];
+  const withdrawals = [{ amount: 400, status: "completed" }, { amount: 100, status: "pending" }, { amount: 9000, status: "rejected" }];
+  const profile = { investment_amount: 5000, total_deductions: 0 };
+  const balance = computeSummaryTotals(profile, deposits, profits, withdrawals);
+  assert.equal(balance.totalProfit, 400);
+  assert.equal(balance.totalWithdrawn, 400);
+  assert.equal(balance.totalBalance, 5000);
+  assert.equal(balance.withdrawableBalance, 4900);
+  const returned = computeSummaryTotals(profile, deposits, profits, withdrawals, [{ amount: 5000, status: "completed" }]);
+  assert.equal(returned.totalBalance, 0);
+  assert.equal(returned.withdrawableBalance, 0);
+  assert.equal(returned.activeInvestment, 0);
+});
+test("payout receipts use the actual completed withdrawal, net payment, fee and selected rate", async () => {
+  const id = "00000000-0000-4000-8000-000000000011";
+  const client = { from: (table) => ({ select: () => ({ eq: () => ({
+    maybeSingle: async () => ({ data: table === "withdrawals" ? { id, user_id: user.id, amount: 400, net_amount: 300, fee: 100, status: "completed", monthly_profit_rate: 8, processed_at: "2026-10-30T10:00:00Z", cycle_end: "2026-10-31T00:00:00Z" } : null, error: null }),
+    single: async () => ({ data: { full_name: "Fixture", username: "fixture" }, error: null }),
+  }) }) }) };
+  const subject = load("app/api/admin/receipt/generate/route.ts", { "@/lib/admin-auth": { requireAdmin: async () => ({ user, error: null }) }, "@/lib/supabase/server": { createServiceRoleClient: async () => client }, "@/lib/api-errors": errorMocks });
+  const response = await subject.POST(request({ type: "payout", id, language: "en" }));
+  assert.equal(response.status, 200);
+  const { receipt } = await response.json();
+  assert.equal(receipt.amount, 300);
+  assert.equal(receipt.grossAmount, 400);
+  assert.equal(receipt.fee, 100);
+  assert.equal(receipt.percentage, 8);
+  assert.equal(receipt.recordKind, "transaction");
+  assert.equal(receipt.date, "2026-10-30T10:00:00Z");
+});
+test("admin deposit decisions use the session actor and one atomic RPC", async () => {
+  let parameters;
+  const client = { rpc: async (name, args) => { assert.equal(name, "admin_decide_deposit"); parameters = args; return { data: { ok: true, status: "approved", cycle_start: "2026-10-31" }, error: null }; } };
+  const subject = load("app/api/admin/deposits/route.ts", { "@/lib/admin-auth": { requireAdmin: async () => ({ user, error: null }) }, "@/lib/supabase/server": { createServiceRoleClient: async () => client }, "@/lib/api-errors": errorMocks });
+  const response = await subject.POST(request({ depositId: "00000000-0000-4000-8000-000000000011", action: "approve", p_actor: "forged" }));
+  assert.equal(response.status, 200);
+  assert.equal(parameters.p_actor, user.id);
+  assert.equal((await subject.POST(request({ depositId: {}, action: "approve" }))).status, 400);
 });
