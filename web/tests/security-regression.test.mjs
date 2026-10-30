@@ -8,8 +8,8 @@ import ts from "typescript";
 const web = path.resolve(import.meta.dirname, "..");
 class NextResponse extends Response {
   static json(body, init) { return Response.json(body, init); }
-  static next() { return { kind: "next", cookies: cookieJar() }; }
-  static redirect(url) { return { kind: "redirect", url, cookies: cookieJar() }; }
+  static next() { return { kind: "next", cookies: cookieJar(), headers: new Headers() }; }
+  static redirect(url) { return { kind: "redirect", url, cookies: cookieJar(), headers: new Headers() }; }
 }
 function cookieJar() {
   const values = [];
@@ -145,12 +145,18 @@ for (const deliveryFails of [false,true]) test(`reminder email ${deliveryFails ?
   assert.equal((await response.json()).email_failed,deliveryFails?1:0);
 });
 test("proxy blocks cross-origin mutations and permits same-origin or authenticated non-browser requests", async () => {
-  const subject = load("proxy.ts", { "@/lib/supabase/middleware": { updateSession: async () => ({ kind: "session" }) } });
+  const subject = load("proxy.ts", { "@/lib/supabase/middleware": { updateSession: async () => ({ kind: "session", headers: new Headers() }) } });
   const req = (origin, site) => ({ method: "POST", nextUrl: new URL("https://tdx.example/api/goals"), headers: new Headers({ ...(origin ? { origin } : {}), ...(site ? { "sec-fetch-site": site } : {}) }) });
   assert.equal((await subject.proxy(req("https://evil.example"))).status, 403);
   assert.equal((await subject.proxy(req(null, "cross-site"))).status, 403);
   assert.equal((await subject.proxy(req("https://tdx.example"))).kind, "next");
   assert.equal((await subject.proxy(req(null))).kind, "next");
+  assert.match((await subject.proxy(req(null))).headers.get("cache-control"),/private.*no-store/);
+});
+test("member pages fail closed when the service configuration is missing",async()=>{
+  const subject=load("lib/supabase/middleware.ts",{"@supabase/ssr":{} });
+  const response=await subject.updateSession({nextUrl:new URL("https://tdx.example/dashboard")});
+  assert.equal(response.status,503);
 });
 test("session refresh cookies survive protected-page redirects", async () => {
   const env = { NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-publishable-key" };

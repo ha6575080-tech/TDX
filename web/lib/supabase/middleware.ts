@@ -20,9 +20,11 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // If env keys are still placeholders (not configured yet), skip session
-  // handling entirely so the app runs fine with static demo data.
+  // Configuration failure must not bypass protection on member pages.
   if (!envIsConfigured()) {
+    if (PROTECTED_PATHS.some((p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`))) {
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+    }
     return supabaseResponse;
   }
 

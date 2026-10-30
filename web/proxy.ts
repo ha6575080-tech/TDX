@@ -2,6 +2,11 @@ import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 
 const publicPaths = ["/", "/login", "/register", "/_not-found"];
+function privateResponse(response: NextResponse) {
+  response.headers.set("Cache-Control", "private, no-store, max-age=0");
+  response.headers.set("Vercel-CDN-Cache-Control", "no-store");
+  return response;
+}
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -12,18 +17,18 @@ export async function proxy(request: NextRequest) {
     const origin = request.headers.get("origin");
     if (request.headers.get("sec-fetch-site") === "cross-site" ||
         (origin && origin !== request.nextUrl.origin)) {
-      return NextResponse.json({ error: "Forbidden request origin" }, { status: 403 });
+      return privateResponse(NextResponse.json({ error: "Forbidden request origin" }, { status: 403 }));
     }
   }
   // API handlers validate identity themselves; avoid a duplicate auth round trip.
-  if (pathname.startsWith("/api/")) return NextResponse.next();
+  if (pathname.startsWith("/api/")) return privateResponse(NextResponse.next());
 
   // Allow public pages through without auth check
   if (publicPaths.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
     return NextResponse.next();
   }
 
-  return await updateSession(request);
+  return privateResponse(await updateSession(request));
 }
 
 export const config = {

@@ -3,7 +3,7 @@
 Repository: `ha6575080-tech/TDX`. Production: `tdx-plum.vercel.app`.
 Supabase: `jgbbifiizezrwvesdisc`. Vercel project: `tdx`.
 
-## Current status
+## Initial status (updated release evidence follows)
 
 The receipt picker and generator were verified in an authenticated production
 admin session. The two approved schema/security migrations are now applied.
@@ -205,3 +205,10 @@ Production commit 4c00b6604add50b3c8783a4e1eb34d36bead7c56 is READY on tdx-plum.
 A durable, private outbox replaces the old claims-before-send implementation. It uses the canonical repeating member cycle and confirmed active funding, suppresses suspended/return-held/paid cycles, retries failures, expires worker leases, and identifies each monthly cycle separately. In-app insertion and acknowledgement are transactional per job. Email uses leased retries and stable Message-ID; SMTP cannot guarantee exactly-once delivery after an ambiguous transport failure. Reminders do not assume an unselected 8% rate or write any money. A protected SMTP connection probe sends no message. The scheduler uses Supabase pg_cron/pg_net and a Vault credential, following https://supabase.com/docs/guides/functions/schedule-functions. Access to HTTP request headers is explicitly denied to API roles. No secret is committed.
 
 CI action releases are verified against official v6 refs and pinned. The obsolete unconfigured nested TDX gitlink is removed from the release tree to fix checkout cleanup. Database health checks specify the test database/user. Browser-control and persistent Node tools currently fail to initialize; authenticated live visual checks of the latest release remain pending. Earlier production receipt downloads and current synthetic export checks are recorded above.
+
+
+## Reminder CI and response privacy
+
+Commit 54c7e2e766d272da15d4a0806cc5b9423ca8acc1 passed all 75 tests without skips, plus 37 existing checks, lint, type check and build (Actions run 41058712405). The production reminder outbox is installed. The scheduler credential was generated securely and transferred to Vault and the sensitive production environment setting without writing it into source files.
+
+Unauthenticated production smoke checks: readiness 200/no-store, login 200, private receipt page 307 to login, receipt API 403; security policy headers are present. The next patch adds explicit private/no-store headers to API and protected-page responses and denies protected pages with 503 if service configuration is missing.
