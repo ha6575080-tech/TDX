@@ -99,7 +99,7 @@ export async function GET() {
   // ---- /api/account/summary — the browser never computes these).
   const approvedDeposits = deposits.filter((d) => d.status === "approved");
   const totalDeposited = approvedDeposits.reduce((s, d) => s + Number(d.amount ?? 0), 0);
-  
+
   const deductions = Number(profile?.total_deductions ?? 0);
   const activeInvestment =
     profile?.investment_amount != null ? Number(profile.investment_amount) : totalDeposited;

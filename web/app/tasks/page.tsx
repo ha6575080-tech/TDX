@@ -91,7 +91,7 @@ if ((data.missedDays ?? 0) > 0) {
     [tasks, todayStr]
   );
 
-  
+
 
   const allDone = !loading && !error && tasks.length === 0 && userId !== null;
 

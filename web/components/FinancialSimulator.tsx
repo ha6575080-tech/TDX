@@ -118,7 +118,7 @@ function Control({
     if (raw.trim() !== "" && Number.isFinite(n)) onChange(n);
   };
 
-  
+
 
   return (
     <div>

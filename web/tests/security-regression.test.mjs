@@ -290,6 +290,12 @@ test("account balances exclude rejected withdrawals, unearned profits, and retur
   assert.equal(returned.withdrawableBalance, 0);
   assert.equal(returned.activeInvestment, 0);
 });
+test("statement outages return an error instead of fabricated zero balances",async()=>{
+  const result={data:null,error:{message:"Synthetic private database failure"}};
+  const subject=load("app/api/statements/route.ts",{"@/lib/auth":okAuth,"@/lib/supabase/server":{createClient:async()=>({rpc:async()=>result})},"@/lib/api-errors":errorMocks});
+  assert.equal((await subject.GET()).status,500);
+  result.error=null;assert.equal((await subject.GET()).status,404);
+});
 test("payout receipts use the actual completed withdrawal, net payment, fee and selected rate", async () => {
   const id = "00000000-0000-4000-8000-000000000011";
   const client = { from: (table) => ({ select: () => ({ eq: () => ({
