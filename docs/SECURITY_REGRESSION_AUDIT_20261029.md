@@ -252,3 +252,8 @@ See RELEASE_READINESS_20261030.md for the current consolidated status. The state
 ## 31 October withdrawal timing and live-state guards
 
 A future profit activation date previously produced cycle zero and could allow an immediate request. The production-schema fixture reproduced it. The forward repair schedules cycle one, adds profile-first payment locking and rechecks suspension, return holds and stored-cycle timing. CI run 41114782794 passed 96 tests with no failures/skips plus 37 member-status checks, lint, types and production build. PostgreSQL concurrency confirms payment waits for a concurrent suspension and rejects it after commit. Migration applied; production release bc9b29281d43991f1793ffeec21c0e4a003b47cd / dpl_8EKATQg2B1dKgMCYx6HFoHqT7g2u is READY. Live function checks passed and the deposit fingerprint is unchanged. See RELEASE_READINESS_20261030.md for remaining launch checks.
+
+
+## Inactive action repair — 31 October
+
+The Inactive action now saves directly rather than opening an extra confirmation; suspension retains confirmation. Authoritative readback and client validation prevent false success. Added real component/POST/RPC integration coverage with synthetic database records, including reload persistence and failed/conflicting saves. Actions 41118458733 passed all 103 tests without failure/skip, 37 status checks, lint, types and build. Release 46fce0aa2de02d74cad6f4018023c6741f678a0a is READY as dpl_2Yjq4fsUrDkYgaFGVfHWM5wndSpU. No production member was modified for testing. See INACTIVE_BUTTON_FIX_20261031.md for evidence and live-browser limits.

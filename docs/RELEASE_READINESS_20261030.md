@@ -3,8 +3,8 @@
 Status: core repairs are deployed and verified. Full launch clearance is pending the provider/browser checks listed below.
 
 Production: https://tdx-plum.vercel.app
-Application commit: bc9b29281d43991f1793ffeec21c0e4a003b47cd
-Vercel deployment: dpl_8EKATQg2B1dKgMCYx6HFoHqT7g2u (READY)
+Application commit: 46fce0aa2de02d74cad6f4018023c6741f678a0a
+Vercel deployment: dpl_2Yjq4fsUrDkYgaFGVfHWM5wndSpU (READY)
 Review: https://github.com/ha6575080-tech/TDX/pull/4
 
 ## Delivered
@@ -19,7 +19,7 @@ Review: https://github.com/ha6575080-tech/TDX/pull/4
 
 ## Validation
 
-GitHub Actions run 41114782794 passed all 96 regression tests with zero failures/skips, plus all 37 existing member-status checks, lint, type checking and production build. Tests include real PostgreSQL concurrency, cross-member data isolation, rollback/replay handling, 1,100 statement records, and multi-page exports in both languages.
+GitHub Actions run 41118458733 passed all 103 regression tests with zero failures/skips, plus all 37 existing member-status checks, lint, type checking and production build. Tests include real PostgreSQL concurrency, cross-member data isolation, rollback/replay handling, 1,100 statement records, and multi-page exports in both languages.
 
 Live checks: readiness 200/no-store; private receipt page redirects to login; unauthenticated receipt API returns 403; statements return 401; private responses return private/no-store. The signed reminder worker returned 200 with no due jobs. SMTP connection verification returned 200 without sending an email. The selected deployment returned no error/fatal log groups in the inspected recent window. This is bounded evidence, not a guarantee of zero errors for every future action.
 
@@ -46,3 +46,11 @@ Security advisors also report intended member/admin SECURITY DEFINER entry point
 The local production-schema fixture reproduced the previous cycle-zero request bypass. The new CLI-created migration 20261030190844_prevent_preactivation_profit_withdrawal.sql was applied twice in the isolated fixture, then installed in production after CI succeeded. Final-day legitimate payments still succeed once; premature, invalid-cycle, suspended and capital-return-held payments are denied. The dashboard cycle calculation and admin error messages match the guard.
 
 Production verification confirms the clamped cycle function and payment guards are installed. There are zero cycle-zero requests; existing deposit fingerprint remains e59a7b2deac458550369f39f7b3f3998. The release is READY on the live alias. The latest 24-hour grouped runtime-error review returned no reported errors; this cannot establish universal error freedom. The current browser/provider/migration-history launch checks above remain unresolved.
+
+## Inactive button repair — 31 October
+
+Active and Inactive now save directly; suspension retains confirmation. The current action has a check mark. API readback and UI response validation prevent false success, a 15-second request timeout bounds waiting, and status/error announcements are accessible. See INACTIVE_BUTTON_FIX_20261031.md for scope and test details.
+
+Actions 41118458733 passed all 103 regression tests with no failures/skips, 37 status checks, lint, types and production build. The new tests run actual admin button events through the actual POST handler and an isolated production-schema status RPC. First-click deactivation, reload persistence, reactivation, suspension/cancel, service failures and conflicting updates passed. Production deployment dpl_2Yjq4fsUrDkYgaFGVfHWM5wndSpU is READY on tdx-plum.vercel.app. No migration or live member-status test was performed. The production status RPC exists, service_role can execute it and authenticated members cannot. The deposit fingerprint remains unchanged.
+
+Chrome page text was readable during investigation, but screenshot/input operations failed and browser control stopped on URL verification. The new isolated component/API/database tests do not establish live Chrome layout or authenticated click coverage. The remaining launch checks above still apply.
