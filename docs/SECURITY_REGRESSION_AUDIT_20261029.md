@@ -219,3 +219,17 @@ Unauthenticated production smoke checks: readiness 200/no-store, login 200, priv
 The reminder release is READY at dpl_65B5Fh33Gewi5h2MR81hchHmnHxp. The protected production SMTP probe returned 200 with email_connection=verified; no email was sent. The five-minute job was created successfully. However, live privilege checks show the managed pg_net extension retains PUBLIC queue grants owned by supabase_admin: attempted revocations by the project postgres role are ineffective. The earlier statement that request-header access was denied is superseded by this verified finding.
 
 The scheduled job is temporarily paused while a forward patch switches HTTP authorization to a method/path/query-bound HMAC with a two-minute validity window. The Vault secret remains inaccessible to anonymous/member roles and is never queued by the patched scheduler. Repeated worker invocations are safe through the durable outbox. The Vercel daily fallback remains compatible.
+
+
+## Latest release and backup approval boundary
+
+Commit 2c30ecff405435a565d7351ddb970850e5cc1c82 is READY in production (dpl_ExHSQm8nUPAkFVDKX8aQstrTeYJL). Actions run 41060203158 passed all 77 tests, including real PostgreSQL concurrency, plus all 37 status checks, lint, types and build. The signed-worker migration is applied and the five-minute scheduler is enabled again. Live receipt page/API responses are private/no-store, readiness is 200/no-store, and unauthorized receipt access is denied.
+
+The requested encrypted application-data snapshot was rejected by automatic approval review because the broad audit authorization did not specifically cover the sensitive production payload and local destination. No production-data snapshot was exported. Recovery-key protection is prepared; the concrete scope is documented in BACKUP_RESTORE_SCOPE.md. Export/restore testing is pending explicit approval. Full launch clearance also remains pending browser regression (the control tool still fails after reset), production migration-history reconciliation, and the provider leaked-password setting.
+
+
+## Verified signed worker and performance follow-up
+
+The signed worker returned HTTP 200 with zero queued/sent/failed messages. The five-minute scheduler is active; anonymous invocation is denied. Live receipt-page and receipt-API responses now return private, no-store, max-age=0. The browser tool still fails to initialize after a clean reset.
+
+Supabase performance review identified nine missing foreign-key lookup indexes and repeated per-row JWT lookups in member policies. The forward optimization adds covering indexes and evaluates unchanged ownership predicates once per query. Local financial regression passes all 19 tests, including a cross-member privacy check and repeat application of the optimization. The planned production optimization changes no rows or access rules. The backup export remains blocked pending the specific approval requested; no alternative export was attempted.

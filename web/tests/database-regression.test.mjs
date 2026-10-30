@@ -29,10 +29,18 @@ test("financial migration against a local copy of the production schema", async 
     await db.exec(fundingGuard);
     await db.exec(fundingGuard);
     await db.exec(await read("supabase/migrations/20261030121313_atomic_admin_financial_decisions.sql"));
+    const performanceRepair=await read("supabase/migrations/20261030131744_optimize_member_policy_queries.sql");
+    await db.exec(performanceRepair);
+    await db.exec(performanceRepair);
     await t.test("migration can be reapplied without changing data", async () => { await db.exec(migration); });
     await t.test("legitimate owner pending deposit succeeds", async () => {
       const result = await asMember("insert into deposits(user_id,amount,receipt_image_url,status,payment_method) values ($1,5000,$2,'pending','online_transfer') returning id", [a, `${a}/receipt.jpg`]);
       assert.equal(result.rows.length, 1);
+    });
+    await t.test("optimized policies keep another member's financial records private",async()=>{
+      const inserted=await db.query("insert into deposits(user_id,amount,receipt_image_url,status) values($1,5000,$2,'approved') returning id",[b,`${b}/private.png`]);
+      try { assert.equal((await asMember("select id from deposits where id=$1",[inserted.rows[0].id])).rows.length,0); }
+      finally { await db.query("delete from deposits where id=$1",[inserted.rows[0].id]); }
     });
     await t.test("forged approval, cross-member deposit, and receipt traversal are blocked", async () => {
       for (const [owner, receipt, status] of [[a, `${a}/forged.jpg`, "approved"], [b, `${b}/other.jpg`, "pending"], [a, `${b}/other.jpg`, "pending"], [a, `${a}/../other.jpg`, "pending"]]) {
