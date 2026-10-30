@@ -4,6 +4,8 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
+import { createHmac, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
 
 const web = path.resolve(import.meta.dirname, "..");
 class NextResponse extends Response {
@@ -23,6 +25,8 @@ function load(relative, mocks = {}, globals = {}) {
   const require = (name) => {
     if (name in mocks) return mocks[name];
     if (name === "next/server") return { NextResponse };
+    if (name === "node:crypto") return { createHmac, timingSafeEqual };
+    if (name === "node:buffer") return { Buffer };
     if (name.startsWith("@/")) return load(name.slice(2) + ".ts", mocks, globals);
     if (name === "nodemailer") return { createTransport() { throw new Error("Unexpected email delivery"); } };
     if (name === "@supabase/supabase-js") return { createClient() { throw new Error("Unexpected database call"); } };
@@ -133,6 +137,21 @@ test("protected SMTP connection check does not send email or queue reminders",as
   const subject=load("app/api/cron/payout-reminders/route.ts",{nodemailer:{createTransport:()=>({verify:async()=>{checked=true;},close:()=>{}})},"@/lib/api-errors":errorMocks},{process:{env:{CRON_SECRET:"fixture",NEXT_PUBLIC_SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"fixture",SMTP_USER:"sender@example.test",SMTP_PASS:"fixture"}}});
   const response=await subject.GET(new Request("https://tdx.example/api/cron/payout-reminders?check=email",{headers:{authorization:"Bearer fixture"}}));
   assert.equal(response.status,200);assert.equal(checked,true);
+});
+test("scheduler signatures expire and cannot be reused for another method or query",()=>{
+  const subject=load("lib/reminder-auth.ts");
+  const secret="synthetic-only-credential",nonce="00000000-0000-4000-8000-000000000001";
+  const signed=(timestamp,method="GET",query="")=>{
+    const signature=createHmac("sha256",secret).update(`${method}:/api/cron/payout-reminders${query}:${timestamp}:${nonce}`).digest("hex");
+    return new Request(`https://tdx.example/api/cron/payout-reminders${query}`,{method,headers:{authorization:`TDX-HMAC ${timestamp}.${nonce}.${signature}`}});
+  };
+  const timestamp=Math.floor(Date.now()/1000);
+  assert.equal(subject.validReminderAuthorization(signed(timestamp),secret),true);
+  assert.equal(subject.validReminderAuthorization(signed(timestamp-121),secret),false);
+  assert.equal(subject.validReminderAuthorization(signed(timestamp+121),secret),false);
+  assert.equal(subject.validReminderAuthorization(signed(timestamp),"different-secret"),false);
+  const altered=signed(timestamp);assert.equal(subject.validReminderAuthorization(new Request(altered.url+"?check=email",{headers:altered.headers}),secret),false);
+  assert.equal(subject.validReminderAuthorization(new Request(altered.url,{method:"POST",headers:altered.headers}),secret),false);
 });
 for (const deliveryFails of [false,true]) test(`reminder email ${deliveryFails ? "failure is retryable" : "success is acknowledged"}`,async()=>{
   let acknowledgement,closed=false;

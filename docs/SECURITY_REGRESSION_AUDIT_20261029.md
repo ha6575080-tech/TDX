@@ -212,3 +212,10 @@ CI action releases are verified against official v6 refs and pinned. The obsolet
 Commit 54c7e2e766d272da15d4a0806cc5b9423ca8acc1 passed all 75 tests without skips, plus 37 existing checks, lint, type check and build (Actions run 41058712405). The production reminder outbox is installed. The scheduler credential was generated securely and transferred to Vault and the sensitive production environment setting without writing it into source files.
 
 Unauthenticated production smoke checks: readiness 200/no-store, login 200, private receipt page 307 to login, receipt API 403; security policy headers are present. The next patch adds explicit private/no-store headers to API and protected-page responses and denies protected pages with 503 if service configuration is missing.
+
+
+## Live scheduler security finding and remediation
+
+The reminder release is READY at dpl_65B5Fh33Gewi5h2MR81hchHmnHxp. The protected production SMTP probe returned 200 with email_connection=verified; no email was sent. The five-minute job was created successfully. However, live privilege checks show the managed pg_net extension retains PUBLIC queue grants owned by supabase_admin: attempted revocations by the project postgres role are ineffective. The earlier statement that request-header access was denied is superseded by this verified finding.
+
+The scheduled job is temporarily paused while a forward patch switches HTTP authorization to a method/path/query-bound HMAC with a two-minute validity window. The Vault secret remains inaccessible to anonymous/member roles and is never queued by the patched scheduler. Repeated worker invocations are safe through the durable outbox. The Vercel daily fallback remains compatible.
