@@ -24,6 +24,7 @@ interface PnlSummary {
   totalPayouts: number;
   totalWithdrawals: number;
   netProfit: number;
+  totalReturns: number;
   totalUsers: number;
   activeUsers: number;
 }
@@ -33,6 +34,8 @@ interface PnlResponse {
   startDate: string;
   endDate: string;
   summary: PnlSummary;
+  reconciliationRequired: boolean;
+  breakdownLimit: number;
   breakdown: {
     deposits: Array<{ amount: number; created_at: string }>;
     payouts: Array<{ amount: number; created_at: string }>;
@@ -86,8 +89,10 @@ export default function AdminPnlPage() {
 
   return (
     <div className="p-6 space-y-6" dir={lang === "ur" ? "rtl" : "ltr"}>
-      <h1 className="text-2xl font-bold">{t("pnlReport")}</h1>
+      <h1 className="text-2xl font-bold">{lang === "ur" ? "کیش فلو رپورٹ" : "Cash flow report"}</h1>
 
+      <p className="text-sm text-white/60">{lang === "ur" ? "یہ ریکارڈ شدہ وصولیوں اور ادائیگیوں کی رپورٹ ہے، کاروباری منافع کا حساب نہیں۔" : "Recorded money received and paid. This measures cash flow; it does not calculate business profit."}</p>
+      {pnl.reconciliationRequired && <p role="alert" className="text-amber-300">{lang === "ur" ? "کچھ ریکارڈز کی جانچ درکار ہے۔ اعداد پر عمل کرنے سے پہلے حساب کی تصدیق کریں۔" : "Some records need reconciliation. Review overlapping or incomplete payments before relying on these totals."}</p>}
       <div className="flex items-center gap-4">
         <label>{t("period")}</label>
         <select
@@ -114,11 +119,11 @@ export default function AdminPnlPage() {
             <p className="font-bold">{pnl.summary.totalPayouts.toLocaleString()}</p>
           </div>
           <div>
-            <span className="text-white/50 text-xs block">{t("totalWithdrawn")}</span>
+            <span className="text-white/50 text-xs block">{lang === "ur" ? "خالص ادا شدہ نکاسیاں" : "Net withdrawals paid"}</span>
             <p className="font-bold">{pnl.summary.totalWithdrawals.toLocaleString()}</p>
           </div>
           <div>
-            <span className="text-white/50 text-xs block">{t("netProfit")}</span>
+            <span className="text-white/50 text-xs block">{lang === "ur" ? "خالص کیش فلو" : "Net cash flow"}</span>
             <p className={`font-bold ${color(pnl.summary.netProfit)}`}>{pnl.summary.netProfit.toLocaleString()}</p>
           </div>
           <div>
@@ -132,9 +137,10 @@ export default function AdminPnlPage() {
         </div>
       )}
 
+      <p className="text-sm text-white/60">{lang === "ur" ? "اصل سرمایہ کی ادا شدہ واپسی" : "Principal returned"}: {pnl.summary.totalReturns.toLocaleString()} PKR. {lang === "ur" ? "کل اعداد تمام ریکارڈز سے ہیں؛ تفصیل میں حالیہ 200 ریکارڈز شامل ہیں۔" : "Totals cover all records; the export lists the latest 200 records in each category."}</p>
       {!loading && pnl && Object.keys(pnl.breakdown).some((k) => (pnl.breakdown as Record<string, unknown[]>)[k]?.length) && (
         <div className="glass-panel p-4">
-          <h2 className="text-xl font-bold mb-3">{t("profitLossStatement")}</h2>
+          <h2 className="text-xl font-bold mb-3">{lang === "ur" ? "لین دین کی تفصیل" : "Recorded transactions"}</h2>
           <StatementExport data={statementData} language={lang} />
         </div>
       )}

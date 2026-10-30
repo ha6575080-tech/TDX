@@ -103,7 +103,7 @@ export async function createReceiptImage(data: ReceiptData, isUr: boolean): Prom
 
 export async function receiptPdf(image: Blob): Promise<Blob> {
   const { jsPDF } = await import("jspdf");
-  const pdf = new jsPDF();
+  const pdf = new jsPDF({ compress: true });
   const bytes = new Uint8Array(await image.arrayBuffer());
   const dimensions = pdf.getImageProperties(bytes);
   const width = Math.min(180, 267 * dimensions.width / dimensions.height);

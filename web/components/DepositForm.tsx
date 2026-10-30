@@ -1,5 +1,7 @@
 "use client";
 
+import { pakistanDate } from "@/lib/dates";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -54,7 +56,7 @@ export default function DepositForm() {
     loadAgents();
   }, [supabase, selectedAgent]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = pakistanDate();
 
   const canSubmitOnline = amountValid && receipt !== null;
   const canSubmitCash = amountValid && selectedAgent && paymentDate;

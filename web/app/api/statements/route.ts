@@ -1,59 +1,32 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('supabaseUrl is required.');
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
+import { internalError } from "@/lib/api-errors";
+import { deriveMemberStatus } from "@/lib/member-status";
 
 export async function GET() {
   const { user, error } = await requireUser();
   if (error) return error;
-
-  const { data: profile } = await getSupabaseAdmin()
-    .from("profiles")
-    .select("full_name, username, mobile_number, city, status, created_at")
-    .eq("id", user!.id)
-    .single();
-
-  const { data: deposits } = await getSupabaseAdmin()
-    .from("deposits")
-    .select("id, amount, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const { data: payouts } = await getSupabaseAdmin()
-    .from("payouts")
-    .select("id, amount, percentage_applied, month, year, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const { data: withdrawals } = await getSupabaseAdmin()
-    .from("withdrawals")
-    .select("id, amount, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const totalDeposited = (deposits || [])
-    .filter((d: { status: string; amount: number }) => d.status === "approved")
-    .reduce((s: number, d) => s + d.amount, 0);
-  const totalPayouts = (payouts || [])
-    .filter((p: { status: string; amount: number }) => p.status === "paid")
-    .reduce((s: number, p) => s + p.amount, 0);
-  const totalWithdrawn = (withdrawals || [])
-    .filter((w: { status: string; amount: number }) =>
-      ["approved", "completed"].includes(w.status)
-    )
-    .reduce((s: number, w) => s + w.amount, 0);
-
+  const client = await createClient();
+  const [profileRes, depositsRes, payoutsRes, profitsRes, withdrawalsRes] = await Promise.all([
+    client.from("profiles").select("full_name, username, mobile_number, city, is_active, is_suspended, role, created_at").eq("id", user.id).single(),
+    client.from("deposits").select("id, amount, status, created_at:uploaded_at").eq("user_id", user.id).order("uploaded_at", { ascending: false }),
+    client.from("payouts").select("id, amount, percentage_applied, month, year, status, created_at").eq("user_id", user.id).order("created_at", { ascending: false }),
+    client.from("profits").select("id, amount, month, year, status, created_at:payout_date").eq("user_id", user.id).order("payout_date", { ascending: false }),
+    client.from("withdrawals").select("id, amount, fee, net_amount, status, created_at:requested_at").eq("user_id", user.id).order("requested_at", { ascending: false }),
+  ]);
+  const failed = [profileRes, depositsRes, payoutsRes, profitsRes, withdrawalsRes].find((result) => result.error);
+  if (failed?.error) return internalError("statements", failed.error);
+  if (!profileRes.data) return internalError("statements", new Error("Missing member profile"));
+  const deposits = depositsRes.data ?? [];
+  const withdrawals = withdrawalsRes.data ?? [];
+  const depositPayouts = payoutsRes.data ?? [];
+  const paidDepositPeriods = new Set(depositPayouts.filter((p) => p.status === "paid").map((p) => p.month + "/" + p.year));
+  const payouts = [...depositPayouts, ...(profitsRes.data ?? []).filter((p) => !paidDepositPeriods.has(p.month + "/" + p.year))];
+  const sum = (rows: Array<{ amount: number | string | null }>) => rows.reduce((total, row) => total + Number(row.amount ?? 0), 0);
   return NextResponse.json({
-    profile,
-    deposits: deposits || [],
-    payouts: payouts || [],
-    withdrawals: withdrawals || [],
-    summary: { totalDeposited, totalPayouts, totalWithdrawn },
-  });
+    profile: { ...profileRes.data, status: profileRes.data.role === "admin" ? "admin" : deriveMemberStatus(profileRes.data) },
+    deposits, payouts, withdrawals,
+    summary: { totalDeposited: sum(deposits.filter((d) => d.status === "approved")), totalPayouts: sum(payouts.filter((p) => p.status === "paid")), totalWithdrawn: sum(withdrawals.filter((w) => w.status === "completed")) },
+  }, { headers: { "Cache-Control": "no-store" } });
 }

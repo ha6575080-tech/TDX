@@ -38,6 +38,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.3",
     "jszip": "3.10.2",
+    "pg": "8.23.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

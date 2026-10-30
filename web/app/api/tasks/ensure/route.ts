@@ -1,26 +1,12 @@
 import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
-import { ensureAndLoadTasks } from "@/lib/tasks";
+import { ensureAndLoadTasks, TaskAccessError } from "@/lib/tasks";
 import { requireUser } from "@/lib/auth";
 import { logServerError } from "@/lib/api-errors";
 
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
   if (error) return error;
-
-  // SUSPENSION GATE: task creation / deduction application have financial
-  // side effects (total_deductions) — a suspended member's account must not
-  // be altered behind their back while access is blocked.
-  const guard = await createServiceRoleClient();
-  const { data: guardProfile } = await guard
-    .from("profiles")
-    .select("is_suspended")
-    .eq("id", user.id)
-    .single();
-  if (guardProfile?.is_suspended) {
-    return NextResponse.json({ error: "account_suspended" }, { status: 403 });
-  }
 
   let body: { userId?: string };
   try {
@@ -43,6 +29,7 @@ export async function POST(request: Request) {
     const result = await ensureAndLoadTasks(userId);
     return NextResponse.json({ success: true, ...result });
   } catch (err) {
+    if (err instanceof TaskAccessError && err.reason === "account_suspended") return NextResponse.json({ error: "account_suspended" }, { status: 403 });
     logServerError("tasks/ensure", err, "failed to load tasks");
     return NextResponse.json({ error: "Failed to load tasks" }, { status: 500 });
   }

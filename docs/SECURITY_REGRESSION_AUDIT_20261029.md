@@ -171,3 +171,13 @@ repairs, and a Content Security Policy that restricts executable/external conten
 - Chat language dependencies and native push permission subscription are stable.
 - Automated tests cover invalid admin support messages, readiness responses,
   invoice ownership and suspension, plus branded exports.
+
+## Continuation — 30 October 2026
+
+The professional receipt is deployed at commit 4b7be96acca8423809d296ab8782d7fac5120fd1. Actual PDF, DOCX and PNG downloads succeeded from the authenticated production page. A later optimization reduces sample PDFs from about 5.9 MB to 125–140 KB while preserving the rendered receipt.
+
+The admin-only read-only cash-flow report and approved-funding guards are now installed in production. No profile exceeds its recorded approved funding. The cash-flow test avoids counting a withdrawal and its monthly profit ledger entry twice, uses the actual net withdrawal payment, excludes admin accounts from member counts, and totals more than 1,000 records without truncation. The updated reporting and statement application routes are staged for the next release.
+
+The staged task repair serializes creation, missed-day deductions and evidence completion using the same profile lock. Local tests show five daily tasks, one deduction per missed day, real uploaded evidence required, and immutable evidence on replay. The full local suite currently passes 54 tests plus the 37 existing status checks; one real PostgreSQL concurrency test is reserved for CI with a disposable local PostgreSQL service. The task migration is not applied yet, pending that CI result.
+
+Remaining launch blockers include non-atomic admin financial approval/return paths, reminder delivery retries/scheduler accuracy, migration history reconciliation, external delivery checks, and backup/restore evidence. The historical risks above are not a statement that TDX is cleared for unrestricted launch.

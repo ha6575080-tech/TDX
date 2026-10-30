@@ -1,5 +1,7 @@
 "use client";
 
+import { pakistanDate } from "@/lib/dates";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -78,7 +80,7 @@ if ((data.missedDays ?? 0) > 0) {
     loadTasks();
   }, [loadTasks]);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = pakistanDate();
 
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.task_date === todayStr),

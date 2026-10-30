@@ -51,6 +51,7 @@ for (const language of ["en", "ur"]) {
     const pdf = await subject.receiptPdf(png);
     const pdfBytes = Buffer.from(await pdf.arrayBuffer());
     assert.equal(pdfBytes.subarray(0, 5).toString(), "%PDF-");
+    assert.ok(pdfBytes.length < 600000, "receipt PDF should remain practical to share on mobile");
     const pdfSource = pdfBytes.toString("latin1");
     assert.match(pdfSource, /\/Width 1200/);
     assert.match(pdfSource, /\/Height 1640/);

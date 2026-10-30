@@ -227,3 +227,8 @@ test("suspended members cannot open invoice downloads directly", async () => {
   await assert.rejects(subject.render(), /redirect:\/dashboard/);
   assert.equal(subject.profileReads(), 0);
 });
+test("financial reporting uses Pakistan calendar boundaries including the quarter and six-month window", () => {
+  const { reportStart } = load("lib/report-period.ts");
+  const now = new Date("2026-10-29T10:00:00Z");
+  for (const [period, expected] of Object.entries({ daily: "2026-10-28T19:00:00.000Z", weekly: "2026-10-22T19:00:00.000Z", monthly: "2026-09-30T19:00:00.000Z", quarterly: "2026-09-30T19:00:00.000Z", "6months": "2026-04-30T19:00:00.000Z", yearly: "2025-12-31T19:00:00.000Z" })) assert.equal(reportStart(period, now).toISOString(), expected);
+});
