@@ -1,4 +1,5 @@
-import { readJsonObject } from "@/lib/request-validation";
+import { readJsonObject, isUuid } from "@/lib/request-validation";
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -185,9 +186,9 @@ export async function POST(request: Request) {
   }
 
   const { userId, action } = body;
-  if (!userId || !action) {
+  if (!isUuid(userId) || !action) {
     return NextResponse.json(
-      { error: "userId and action are required" },
+      { error: "A valid userId and action are required" },
       { status: 400 }
     );
   }
@@ -300,12 +301,9 @@ export async function POST(request: Request) {
 
   if (action === "reset_password") {
     // Generate a temporary password and show it to the admin once.
-    const temp = Array.from(
-      { length: 8 },
-      () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
-        Math.floor(Math.random() * 62)
-      ]
-    ).join("");
+    // 192 random bits, with all character classes represented for provider
+    // policies. Never log this credential or use Math.random for passwords.
+    const temp = `Td9!${randomBytes(24).toString("base64url")}`;
 
     const { error } = await supabase.auth.admin.updateUserById(userId, {
       password: temp,

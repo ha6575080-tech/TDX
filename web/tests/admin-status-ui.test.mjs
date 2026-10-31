@@ -20,7 +20,7 @@ function load(file,mocks={}){
  const filename=path.join(root,file),exports={};
  const output=ts.transpileModule(fs.readFileSync(filename,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;
  const resolve=name=>name in mocks?mocks[name]:name.startsWith('@/')?load(name.slice(2)+(fs.existsSync(path.join(root,name.slice(2)+'.tsx'))?'.tsx':'.ts'),mocks):require(name);
- vm.runInNewContext(output,{exports,require:resolve,window:dom.window,document:dom.window.document,navigator:dom.window.navigator,fetch:(...args)=>globalThis.fetch(...args),Response,Request,URL,console,process,setTimeout,clearTimeout,AbortSignal,Intl},{filename});return exports;
+ vm.runInNewContext(output,{exports,require:resolve,window:dom.window,document:dom.window.document,navigator:dom.window.navigator,fetch:(...args)=>globalThis.fetch(...args),Response,Request,URL,console,process,setTimeout,clearTimeout,AbortSignal,Intl,TextEncoder},{filename});return exports;
 }
 const blank=()=>null;
 const Panel=load('app/admin/AdminPanel.tsx',{
@@ -98,5 +98,20 @@ test('admin status buttons save the real audited transition without an extra ina
    const {view,row}=await mount();fireEvent.click(row.getByRole('button',{name:'Inactive',exact:true}));const error=await view.findByRole('alert');assert.match(error.textContent,/not saved/);assert.equal(view.queryByRole('status'),null);assert.equal(row.getByRole('button',{name:'Active',pressed:true}).disabled,true);
    assert.deepEqual(statuses,[409]);
   },{race:true}));
+  await t.test('password form blocks mismatched confirmation and clears credentials after a verified change',async()=>{
+   let calls=0;const Form=load('components/PasswordChangeForm.tsx').default;
+   const route=load('app/api/account/password/route.ts',{
+    'next/server':{NextResponse:{json:Response.json}},
+    '@/lib/auth':{requireUser:async()=>({user:{id:a,email:'fixture@example.invalid'},error:null})},
+    '@/lib/supabase/server':{createClient:async()=>({auth:{signInWithPassword:async()=>({data:{user:{id:a}},error:null}),updateUser:async()=>({error:null}),signOut:async()=>({error:null})}})},
+   });
+   try{
+    globalThis.fetch=async(url,options)=>{calls++;assert.equal(url,'/api/account/password');return route.POST(new Request('https://tdx.test'+url,options));};
+    const view=render(React.createElement(Form));const current=view.getByLabelText('Current password'),password=view.getByLabelText('New password',{exact:true}),confirmation=view.getByLabelText('Confirm new password');
+    fireEvent.change(current,{target:{value:'fixture-old-password'}});fireEvent.change(password,{target:{value:'fixture-new-password'}});fireEvent.change(confirmation,{target:{value:'different-confirmation'}});
+    fireEvent.submit(view.getByRole('form',{name:'Change password'}));assert.match(view.getByRole('alert').textContent,/do not match/);assert.equal(calls,0);
+    fireEvent.change(confirmation,{target:{value:'fixture-new-password'}});fireEvent.submit(view.getByRole('form',{name:'Change password'}));await view.findByRole('status');assert.equal(calls,1);assert.equal(current.value,'');assert.equal(password.value,'');assert.equal(confirmation.value,'');
+   }finally{cleanup();globalThis.fetch=originalFetch;}
+  });
  }finally{globalThis.fetch=originalFetch;await db.close();dom.window.close();}
 });

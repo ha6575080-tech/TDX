@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { TopNav, BottomNav, GlassPanel, LanguageToggle } from "@/components/ui";
+import PasswordChangeForm from "@/components/PasswordChangeForm";
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -57,9 +58,10 @@ export default function SettingsPage() {
           <div className="border-t border-outline-variant/20 pt-6">
             <h2 className="text-title-md font-semibold text-on-surface">Notifications</h2>
             <p className="text-sm text-on-surface-variant mb-3">In-app notifications and push are managed via your browser. You can enable/disable in your device settings.</p>
-            <div className="rounded-lg bg-surface-container-low p-3 text-sm text-on-surface-variant">
-              No sensitive keys are shown here. Server configuration (Supabase keys, SMTP passwords, Gemini API keys, service-role keys, CRON secrets, VAPID private keys) is never exposed to members or admins in this UI.
-            </div>
+          </div>
+
+          <div className="border-t border-outline-variant/20 pt-6">
+            <PasswordChangeForm />
           </div>
 
           <div className="border-t border-outline-variant/20 pt-6">
@@ -70,12 +72,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {role === "admin" && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-              <p className="font-semibold">Admin Note</p>
-              <p className="mt-1">You are logged in as Super Admin. For security, server secrets and environment variables are not displayed in Settings or any client UI.</p>
-            </div>
-          )}
+          {role === "admin" && <p className="text-sm text-on-surface-variant">Signed in as Admin.</p>}
         </GlassPanel>
 
         <button onClick={() => router.push("/dashboard")} className="h-10 rounded-lg border border-outline-variant/40 px-4 text-sm font-semibold text-on-surface hover:bg-surface-bright">Back to Dashboard</button>

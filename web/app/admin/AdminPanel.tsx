@@ -564,7 +564,7 @@ setUpgrades(ug.upgrades ?? []);
         setError(data.error ?? "Failed to reset password");
         return;
       }
-      setActionMsg(`Temporary password: ${data.temporaryPassword} (shown once)`);
+      setActionMsg(`New password: ${data.temporaryPassword} (shown once). Ask the member to change it in Settings.`);
     },
     []
   );

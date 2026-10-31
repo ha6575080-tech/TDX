@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
 import { extractErrorInfo } from "@/lib/errors";
+import { isStrongPassword, passwordPolicyError } from "@/lib/password-policy";
 
 const PAYMENT_METHODS = ["EASY PAISA", "JAZZ CASH", "NAYAPAY", "BANK", "UPAISA"];
 const PHONE_REGEX = /^03[0-9]{9}$/;
@@ -59,7 +60,7 @@ export default function RegisterPage() {
   const submittingRef = useRef(false);
 
   const mobileValid = PHONE_REGEX.test(mobileNumber);
-  const passwordValid = password.length >= 6;
+  const passwordValid = isStrongPassword(password);
   const canSubmit =
     identifier.trim() !== "" &&
     fullName.trim() !== "" &&
@@ -342,6 +343,9 @@ export default function RegisterPage() {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  autoComplete="new-password"
+                  minLength={12}
+                  maxLength={72}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   aria-label={t("password")}
@@ -365,7 +369,7 @@ export default function RegisterPage() {
               </div>
               {password !== "" && !passwordValid && (
                 <p className="mt-1 text-xs text-error">
-                  Password must be at least 6 characters.
+                  {passwordPolicyError(password) === "too_long" ? "This password is too long. Please shorten it." : "Use a unique password with at least 12 characters."}
                 </p>
               )}
             </div>

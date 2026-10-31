@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import vm from "node:vm";
 import ts from "typescript";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 import { Buffer } from "node:buffer";
 
 const web = path.resolve(import.meta.dirname, "..");
@@ -25,14 +25,14 @@ function load(relative, mocks = {}, globals = {}) {
   const require = (name) => {
     if (name in mocks) return mocks[name];
     if (name === "next/server") return { NextResponse };
-    if (name === "node:crypto") return { createHmac, timingSafeEqual };
+    if (name === "node:crypto") return { createHmac, timingSafeEqual, randomBytes };
     if (name === "node:buffer") return { Buffer };
     if (name.startsWith("@/")) return load(name.slice(2) + ".ts", mocks, globals);
     if (name === "nodemailer") return { createTransport() { throw new Error("Unexpected email delivery"); } };
     if (name === "@supabase/supabase-js") return { createClient() { throw new Error("Unexpected database call"); } };
     throw new Error(`Unexpected import: ${name}`);
   };
-  vm.runInNewContext(output, { exports, require, Response, Request, URL, console, process: { env: {} }, setTimeout, clearTimeout, AbortController, ...globals }, { filename });
+  vm.runInNewContext(output, { exports, require, Response, Request, URL, console, process: { env: {} }, setTimeout, clearTimeout, AbortController, TextEncoder, ...globals }, { filename });
   return exports;
 }
 const validation = load("lib/request-validation.ts");
@@ -329,4 +329,69 @@ test("admin deposit decisions use the session actor and one atomic RPC", async (
   assert.equal(response.status, 200);
   assert.equal(parameters.p_actor, user.id);
   assert.equal((await subject.POST(request({ depositId: {}, action: "approve" }))).status, 400);
+});
+
+test('provider failures never expose internal error text in user-facing messages',()=>{
+ const errors=load('lib/errors.ts');
+ const secret='SQL select private_profile; token=fixture-secret';
+ for(const error of [{code:'XX999',message:secret},{message:secret},new Error(secret),secret])assert.equal(errors.extractErrorInfo(error,'Please try again.').friendly,'Please try again.');
+ assert.equal(errors.extractErrorInfo({code:'invalid_credentials',message:secret}).friendly,'The email/mobile or password is incorrect.');
+ assert.equal(errors.extractErrorInfo({code:'23505',message:secret}).friendly.includes(secret),false);
+});
+
+test('new password policy counts Unicode characters and bounds encoded length',()=>{
+ const policy=load('lib/password-policy.ts');
+ for(const value of [null,{},'shortpass','🙂'.repeat(8),'a'.repeat(73),'پ'.repeat(37)])assert.equal(policy.isStrongPassword(value),false);
+ for(const value of ['long unique phrase','a'.repeat(72),'پ'.repeat(24),'🙂'.repeat(12)])assert.equal(policy.isStrongPassword(value),true);
+});
+
+function passwordRoute(overrides={}){
+ const calls=[];
+ const account={id:'00000000-0000-4000-8000-000000000001',email:'fixture@example.invalid'};
+ const client={auth:{
+  signInWithPassword:async args=>{calls.push(['verify',args]);if(overrides.throwVerify)throw Error('Fixture provider unavailable');return overrides.verify??{data:{user:account},error:null};},
+  updateUser:async args=>{calls.push(['update',args]);return overrides.update??{data:{user:account},error:null};},
+  signOut:async args=>{calls.push(['signout',args]);return overrides.signout??{error:null};},
+ }};
+ const route=load('app/api/account/password/route.ts',{
+  '@/lib/auth':{requireUser:async()=>overrides.guard??{user:account,error:null}},
+  '@/lib/supabase/server':{createClient:async()=>client},
+ });return {route,calls,account};
+}
+const passwordBody={currentPassword:'fixture-current-password',newPassword:'fixture-new-password'};
+test('password change requires a live authenticated account',async()=>{
+ const {route,calls}=passwordRoute({guard:{user:null,error:Response.json({error:'Not authenticated'},{status:401})}});
+ assert.equal((await route.POST(request(passwordBody))).status,401);assert.equal(calls.length,0);
+});
+test('invalid and unchanged passwords never reach the auth service',async()=>{
+ for(const body of [null,[],{}, {...passwordBody,newPassword:'short'}, {...passwordBody,newPassword:passwordBody.currentPassword}]){
+  const {route,calls}=passwordRoute();assert.equal((await route.POST(request(body))).status,400);assert.equal(calls.length,0);
+ }
+});
+test('a wrong current password or mismatched identity cannot update the password',async()=>{
+ for(const verify of [{data:{user:null},error:{code:'invalid_credentials'}},{data:{user:{id:'another-member'}},error:null}]){
+  const {route,calls}=passwordRoute({verify});const result=await route.POST(request(passwordBody));assert.equal(result.status,400);assert.deepEqual(calls.map(c=>c[0]),['verify']);
+ }
+});
+test('password change verifies the session owner, updates, then revokes other refresh sessions',async()=>{
+ const {route,calls,account}=passwordRoute();const result=await route.POST(request({...passwordBody,userId:'someone-else',email:'someone-else@example.invalid'}));
+ assert.equal(result.status,200);assert.deepEqual(await result.json(),{success:true,otherSessionsSignedOut:true});assert.deepEqual(calls.map(c=>c[0]),['verify','update','signout']);
+ assert.equal(calls[0][1].email,account.email);assert.equal(calls[1][1].current_password,passwordBody.currentPassword);assert.equal(calls[1][1].password,passwordBody.newPassword);assert.equal(calls[2][1].scope,'others');
+});
+test('password provider failures stay private and never revoke sessions on a failed change',async()=>{
+ const {route,calls}=passwordRoute({update:{error:{code:'weak_password',message:'fixture-private-detail'}}});const result=await route.POST(request(passwordBody));assert.equal(result.status,400);assert.equal((await result.text()).includes('fixture-private-detail'),false);assert.deepEqual(calls.map(c=>c[0]),['verify','update']);
+});
+test('a successful password update reports a session-revocation failure honestly',async()=>{
+ const {route}=passwordRoute({signout:{error:{code:'unavailable'}}});const result=await route.POST(request(passwordBody));assert.deepEqual(await result.json(),{success:true,otherSessionsSignedOut:false});
+});
+test('admin reset uses a high-entropy password with all required character classes',async()=>{
+ let credential;const client={auth:{admin:{updateUserById:async(id,attributes)=>{assert.equal(id,'00000000-0000-4000-8000-000000000001');credential=attributes.password;return {error:null};}}}};
+ const route=load('app/api/admin/users/route.ts',{'@/lib/admin-auth':{requireAdmin:async()=>({user:{id:'admin-fixture'},error:null})},'@/lib/supabase/server':{createServiceRoleClient:async()=>client},'@/lib/api-errors':errorMocks});
+ const result=await route.POST(request({userId:'00000000-0000-4000-8000-000000000001',action:'reset_password'}));assert.equal(result.status,200);const data=await result.json();assert.equal(data.temporaryPassword,credential);assert.equal(credential.length,36);assert.match(credential,/[a-z]/);assert.match(credential,/[A-Z]/);assert.match(credential,/[0-9]/);assert.match(credential,/[!]/);
+ const denied=load('app/api/admin/users/route.ts',{'@/lib/admin-auth':{requireAdmin:async()=>({error:Response.json({error:'Forbidden'},{status:403})})},'@/lib/supabase/server':{createServiceRoleClient:async()=>{throw Error('Unauthorized service access');}},'@/lib/api-errors':errorMocks});assert.equal((await denied.POST(request({userId:'00000000-0000-4000-8000-000000000001',action:'reset_password'}))).status,403);
+});
+
+
+test('password transport failures return a controlled response without changing credentials',async()=>{
+ const {route,calls}=passwordRoute({throwVerify:true});const response=await route.POST(request(passwordBody));assert.equal(response.status,503);assert.equal((await response.text()).includes('Fixture provider'),false);assert.deepEqual(calls.map(c=>c[0]),['verify']);
 });
