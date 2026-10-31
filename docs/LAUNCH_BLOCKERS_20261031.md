@@ -4,15 +4,13 @@ The user explicitly chose completely free plans and Vercel for a private, non-co
 
 ## Current released code
 
-Password-security release 39fe3c0974a5c40b57c5a41714f6e8432a0d72e2 is READY as Vercel deployment dpl_93z9c2TT6fBJSb6AuNVfJ7AaW1Hj. GitHub Actions 41193332460 passed all 114 regression tests without failure/skip plus 37 member-status checks, lint, types and production build. It adds verified Settings password changes, current-password and identity checks, bounded server validation, cryptographic admin-reset credentials, safer errors and clear session-revocation results. Issued access tokens can remain valid until their provider expiry after other refresh sessions are revoked.
+Private-pilot release a706566bcf5a6a2ac95e37d8d6672b9e80903f0f is READY as Vercel deployment dpl_7epbawiWoJczGGJSwGvfABEssym3. GitHub Actions 41194297479 passed all 116 regression tests without failure/skip plus 37 member-status checks, lint, types and production build. It includes verified Settings password changes, current-password and identity checks, bounded server validation, cryptographic admin-reset credentials, safer errors, clear session-revocation results and default-closed pilot pages. Issued access tokens can remain valid until their provider expiry after other refresh sessions are revoked.
 
-The GitHub tool connection was temporarily unavailable, then restored by the user. An isolated checkout and commit b9a74bc357b670b5a26b1013bbcd45003ae0ab86 were created under ignored .audit-tools; its Git push did not succeed. The same source was published successfully through the restored GitHub API as 39fe3c0974a5c40b57c5a41714f6e8432a0d72e2. No GitHub token was extracted or exposed.
+## Pilot access controls saved and verified
 
-## Pilot access work in progress
+The deployed landing/registration pages default to an invitation-only pilot. NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=false is explicit for production, preview and development. Public signup requires a new build with that value true, and the separate hosted Supabase signup control must also be enabled. Pilot metadata and robots rules discourage indexing; authentication, not robots, protects private records. Existing accounts remain subject to their normal role/suspension controls. The pilot notice explicitly says testing only and no real payments.
 
-The new landing/registration pages default to an invitation-only pilot. Public signup requires the explicit NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP=true build setting, and the separate hosted Supabase signup control must also be enabled. Pilot metadata and robots rules discourage indexing; authentication, not robots, protects private records. Existing accounts remain subject to their normal role/suspension controls. The pilot notice explicitly says testing only and no real payments.
-
-After the compatible pilot code is deployed, disable public self-signup in Supabase and enable the free password protections: minimum 12 characters, secure password change and current-password requirement. These provider changes have not yet been claimed as saved. Do not raise the minimum against the old eight-character reset generator; the longer generator is now released.
+After the compatible code was READY, Supabase public self-signup was disabled and saved; it remained OFF after reloading the dashboard. Anonymous sign-in is OFF. The free password controls were also saved and verified: minimum 12 characters, secure password change ON and current-password requirement ON. Secure email change remains ON. Existing email-confirmation behavior was preserved for phone-alias accounts. The longer reset generator was released before raising the minimum. No actual member password was changed as a test.
 
 ## Free-plan limitations confirmed in the signed-in dashboard
 
@@ -22,9 +20,15 @@ The Supabase CLI is still unsigned-in: website login does not supply its managem
 
 ## Bounded live browser evidence
 
-The Chrome connection reached the authenticated production admin and Users screens. Saved inactive states were visible in a fresh tab; the agent made no member-status change. Receipt records and generation completed without the old server error. The current receipt PDF downloaded on 31 October as TDX-deposit-077c6615 (1).pdf (134174 bytes), is one A4 page, and was rendered for visual inspection. Branding, member details, support number, digital stamp and signature note fit without clipping. No receipt was shared externally.
+The Chrome connection reached the authenticated production admin and Users screens. Saved inactive states were visible in a fresh tab; the agent made no member-status change. Receipt records and generation completed without the old server error. The current receipt PDF downloaded on 31 October (134174 bytes), is one A4 page, and was rendered for visual inspection. Branding, member details, support number, digital stamp and signature note fit without clipping. The customer download remains local and ignored. No receipt was shared externally.
 
-Some browser calls timed out and reset the browser runtime. Retest the final private-pilot landing, registration restriction, member/admin routes, current password settings and representative exports after final deployment. No real password or financial transaction was changed as a test.
+The final deployed welcome/registration pages and 11 bounded live HTTP checks passed, including 401/403 responses for private data and password mutations without authentication, login redirects for private pages, noindex and absence of public signup forms. Health is 200/no-store. The runtime-error query reported no errors in the preceding 24 hours. In Chrome the existing suspended account is correctly blocked from member access while its administrator Control Room loads. No real password, member status or financial transaction was changed for a test; no external sharing occurred.
+
+## Pilot operating boundary and remaining work
+
+The tested invitation-only pilot is available now; no public/commercial launch is claimed. Use named testers and no real payments. Financial features still operate on the connected records, so fake transaction exercises belong in the isolated regression database rather than real member accounts. No paid plan, hosting migration or subscription was initiated.
+
+Keep the tested production deployment pinned. The existing migration-history failure remains the reason not to merge PR4 or enable automatic historical migration replay. Full authentication/file recovery, paid-only leaked-password screening and unrestricted commercial hosting are not established by this free pilot. The local encrypted backup is deliberately limited to its approved scope. These limits remain documented rather than being reported as fixed.
 
 ## References
 
