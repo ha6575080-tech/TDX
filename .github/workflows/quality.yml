@@ -36,6 +36,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm run lint
       - run: npm run typecheck
+      - run: node --test ../scripts/tests/*.test.mjs
       - run: npm test
         env:
           POSTGRES_TEST_URL: postgres://postgres:postgres@localhost:5432/tdx_test
