@@ -9,6 +9,8 @@ import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
 import { extractErrorInfo } from "@/lib/errors";
 import { isStrongPassword, passwordPolicyError } from "@/lib/password-policy";
+import { PUBLIC_SIGNUP_ENABLED } from "@/lib/pilot-mode";
+import PilotWelcome from "@/components/PilotWelcome";
 
 const PAYMENT_METHODS = ["EASY PAISA", "JAZZ CASH", "NAYAPAY", "BANK", "UPAISA"];
 const PHONE_REGEX = /^03[0-9]{9}$/;
@@ -36,6 +38,10 @@ const inputCls =
   "w-full rounded-xl border border-outline-variant/50 bg-surface-container-low px-3 py-2.5 text-sm text-on-surface outline-none focus:border-primary focus:shadow-[0_0_10px_rgba(208,255,130,0.3)]";
 
 export default function RegisterPage() {
+  return PUBLIC_SIGNUP_ENABLED ? <RegistrationForm /> : <PilotWelcome registration />;
+}
+
+function RegistrationForm() {
   const router = useRouter();
   const supabase = createClient();
   const { t } = useI18n();

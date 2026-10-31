@@ -113,5 +113,21 @@ test('admin status buttons save the real audited transition without an extra ina
     fireEvent.change(confirmation,{target:{value:'fixture-new-password'}});fireEvent.submit(view.getByRole('form',{name:'Change password'}));await view.findByRole('status');assert.equal(calls,1);assert.equal(current.value,'');assert.equal(password.value,'');assert.equal(confirmation.value,'');
    }finally{cleanup();globalThis.fetch=originalFetch;}
   });
+  await t.test('private pilot home and registration pages do not initialize public signup',async()=>{
+   let networkCalls=0;const mocks={
+    'next/link':({children,...props})=>React.createElement('a',props,children),
+    '@/lib/pilot-mode':{PUBLIC_SIGNUP_ENABLED:false},
+    '@/components/ui':{LanguageToggle:blank,GlassPanel:blank,GlowButton:blank},
+    '@/lib/supabase/client':{createClient:()=>{throw Error('Public authentication must not initialize in pilot mode');}},
+   };
+   try{
+    globalThis.fetch=async()=>{networkCalls++;throw Error('Unexpected public signup');};
+    for(const file of ['app/page.tsx','app/register/page.tsx']){
+     const Page=load(file,mocks).default;const view=render(React.createElement(Page));
+     assert.ok(view.getByRole('heading',{name:'Private pilot'}));assert.ok(view.getByRole('link',{name:'Sign in'}));assert.equal(view.queryByRole('textbox'),null);assert.match(view.getByRole('main').textContent,/Do not send real payments/);if(file.includes('register'))assert.match(view.getByRole('status').textContent,/registration is currently closed/);cleanup();
+    }
+    assert.equal(networkCalls,0);
+   }finally{cleanup();globalThis.fetch=originalFetch;}
+  });
  }finally{globalThis.fetch=originalFetch;await db.close();dom.window.close();}
 });

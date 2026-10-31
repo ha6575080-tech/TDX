@@ -395,3 +395,10 @@ test('admin reset uses a high-entropy password with all required character class
 test('password transport failures return a controlled response without changing credentials',async()=>{
  const {route,calls}=passwordRoute({throwVerify:true});const response=await route.POST(request(passwordBody));assert.equal(response.status,503);assert.equal((await response.text()).includes('Fixture provider'),false);assert.deepEqual(calls.map(c=>c[0]),['verify']);
 });
+
+test('private pilot is the default and public signup requires an explicit setting',()=>{
+ assert.equal(load('lib/pilot-mode.ts').PUBLIC_SIGNUP_ENABLED,false);
+ assert.equal(load('lib/pilot-mode.ts',{}, {process:{env:{NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP:'true'}}}).PUBLIC_SIGNUP_ENABLED,true);
+ assert.equal(load('lib/pilot-mode.ts',{}, {process:{env:{NEXT_PUBLIC_ALLOW_PUBLIC_SIGNUP:'false'}}}).PUBLIC_SIGNUP_ENABLED,false);
+ const rules=load('app/robots.ts').default().rules;assert.equal(rules.disallow,'/');
+});

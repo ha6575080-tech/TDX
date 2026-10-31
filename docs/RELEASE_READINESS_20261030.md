@@ -1,56 +1,36 @@
-# TDX release readiness — updated 31 October 2026
+# TDX readiness — updated 31 October 2026
 
-Status: core repairs are deployed and verified. Full launch clearance is pending the provider/browser checks listed below.
+Target: a free, invitation-only, non-commercial private pilot, selected explicitly by the user. Do not describe this as unrestricted public/commercial launch clearance or guarantee zero future errors. Final pilot gating/provider checks are in progress; see LAUNCH_BLOCKERS_20261031.md.
 
 Production: https://tdx-plum.vercel.app
-Application commit: 46fce0aa2de02d74cad6f4018023c6741f678a0a
-Vercel deployment: dpl_2Yjq4fsUrDkYgaFGVfHWM5wndSpU (READY)
+Application commit: 39fe3c0974a5c40b57c5a41714f6e8432a0d72e2
+Deployment: dpl_93z9c2TT6fBJSb6AuNVfJ7AaW1Hj (READY)
 Review: https://github.com/ha6575080-tech/TDX/pull/4
 
-## Delivered
+## Delivered and validated
 
-- Receipt selection no longer depends on missing review fields or ambiguous profile joins. Bank-style English/Urdu PDF, Word and PNG receipts use the TDX logo, support 0308-3958294, and the requested electronic issuance stamp. Payout receipts show gross profit, fee and actual net payment. Sharing supports native file sharing and explicit attachment fallbacks for WhatsApp, Facebook, Instagram, TikTok and email. No private receipt URL is made public.
-- Deposits, principal returns, profit completion and daily-task deductions have server-authoritative ownership, suspension/funding guards, transaction locks and replay protection. Rejected requests and returned principal no longer inflate account balances. Two real cycles in one month do not overwrite each other.
-- Future activation dates now schedule cycle one rather than opening cycle zero. Profit completion locks the member profile first and rechecks suspension, capital-return holds and stored-cycle timing before payment. No existing dates or financial rows were rewritten. A disposable PostgreSQL test holds a concurrent suspension open and verifies the payment waits, then rejects the suspended member.
-- Read-only cash-flow totals avoid duplicate payments and REST row-limit truncation. Nine missing lookup indexes are installed; repeated per-row JWT calls in public policies dropped from 26 to zero without changing ownership rules.
-- Five-minute reminders use the canonical monthly cycle, a durable outbox, transactional in-app delivery and leased email retries. Short-lived, method/path/query-bound signatures keep the long-lived credential out of the managed HTTP queue. SMTP cannot guarantee exactly-once after an ambiguous transport failure; stable Message-ID and replay guards limit this risk.
-- Statements use one read-only, session-owned SQL snapshot and include complete history, net withdrawals, fees and principal returns. Paginated English/Urdu PDF/Word/PNG exports avoid CSS screenshot and built-in-font failures. Multi-page PNG downloads are ZIP files. Word includes page text descriptions.
-- APIs/protected pages send private/no-store cache headers, protected pages fail closed on missing configuration, notification navigation stays on-site, push destinations are allowlisted, and malformed requests produce controlled errors. Dependencies were updated; the latest install audit reported zero known vulnerabilities.
+Receipt loading/schema repairs; branded English/Urdu PDF/Word/PNG exports with TDX logo, support 0308-3958294 and electronic issuance stamp; private sharing fallbacks; session-owned complete financial statements; cross-member isolation; fresh suspension checks; server-authoritative financial decisions with locks/audits/replay guards; funded-upgrade and cycle-zero guards; durable five-minute signed reminders; cashflow aggregation and policy/index optimization; private/no-store responses; bounded validation; updated dependencies.
 
-## Validation
+Inactive now saves directly and persists on reload. Active behaves the same; suspension retains confirmation. Authoritative readback and UI validation prevent false success. New tests cover real component clicks through the actual status POST handler and an isolated database RPC.
 
-GitHub Actions run 41118458733 passed all 103 regression tests with zero failures/skips, plus all 37 existing member-status checks, lint, type checking and production build. Tests include real PostgreSQL concurrency, cross-member data isolation, rollback/replay handling, 1,100 statement records, and multi-page exports in both languages.
+The latest password release adds Settings password changes with explicit current-password verification, trusted session identity, strong new-password validation, cryptographic reset credentials and safe provider error messages. New tests cover wrong credentials, conflicting identity, transport/provider failures, confirmation mismatch and sensitive-field clearing. Current access tokens may remain valid until expiry after revoking other refresh sessions.
 
-Live checks: readiness 200/no-store; private receipt page redirects to login; unauthenticated receipt API returns 403; statements return 401; private responses return private/no-store. The signed reminder worker returned 200 with no due jobs. SMTP connection verification returned 200 without sending an email. The selected deployment returned no error/fatal log groups in the inspected recent window. This is bounded evidence, not a guarantee of zero errors for every future action.
+Actions 41193332460 passed all 114 regression tests without failures/skips, all 37 member-status checks, lint, type checking and production build. Tests include real PostgreSQL concurrency, rollback/replay, 1100-row statements and multi-page bilingual exports. Local validation of the same release also passed build/lint/types and 113 tests; the real-PostgreSQL case was deferred to the successful hosted run.
 
-Actual receipt PDF/Word/PNG downloads were verified earlier in an authenticated production session. Current exports were also checked with synthetic samples. Authenticated browser checks of the latest statement release remain pending because browser-control initialization fails.
+## Live observations
 
-## Approved backup and isolated restore
+Authenticated admin/Users screens load, and saved inactive states are visible in a fresh Chrome tab. Receipt selection/generation and the live PDF download completed. The downloaded PDF is one A4 page and was visually checked for branding, support number, stamp and unclipped layout. Other export formats also have synthetic bilingual rendering coverage and were downloaded in an earlier authenticated audit. No live status, password or financial transaction was changed for a test, and no member receipt was shared externally.
 
-The user explicitly approved the defined encrypted export and local restore scope. The encrypted public-data snapshot is saved in .audit-tools/backups/TDX-20261030.public.pgp, excluded from Git. Its random recovery key is protected in Supabase Vault and in a separate Windows-account-protected DPAPI file. No plaintext key or customer-record file was created.
+Earlier deployed checks verified health 200/no-store; private APIs return 401/403 and protected pages redirect to login; SMTP connection verification and signed reminders work without test emails or financial actions. Repeat bounded health/access checks after the final pilot release.
 
-Local restore verified all 21 tables and 111 rows against snapshot fingerprints; all foreign-key checks passed. Authentication identities were placeholders. The snapshot includes nine account IDs and inventory for 14 storage objects, but excludes authentication credentials/session tokens, provider secrets and actual uploaded files. See BACKUP_RESTORE_SCOPE.md and the private restore-report.json for exact evidence. This does not establish complete provider-level authentication or file recovery.
+## Recovery, operations and free-plan limits
 
-Existing production financial rows were not changed by these repairs; the deposit fingerprint remained e59a7b2deac458550369f39f7b3f3998 across the database rollouts. No real approval, payout or external sharing of member information was used as a test.
+The explicitly approved encrypted local export restored all 21 tables/111 rows with matching fingerprints and foreign keys. It excludes real authentication credentials, provider secrets and uploaded-file contents. Recovery keys are in Supabase Vault and a separate DPAPI-protected local file; no plaintext key or customer-record file was created. See BACKUP_RESTORE_SCOPE.md. This does not establish complete hosted recovery.
 
-## Remaining launch checks
+The dashboard confirms Supabase Free has no hosted backups and does not provide leaked-password protection. Keep all services free as instructed. The pilot uses testing data/no real payments; free quotas can interrupt availability. Vercel Hobby permits personal, non-commercial use only: https://vercel.com/docs/plans/hobby
 
-1. Restore authenticated browser testing for login/registration, member/admin flows, mobile interaction and live statement downloads. The control tool still reports a kernel-assets initialization failure after reset.
-2. Enable or resolve the provider leaked-password-protection notice and verify the complete hosted-service recovery setup. The Supabase connector does not expose auth-configuration edits; the CLI currently has no access token. A working browser connection or TDX-account CLI sign-in is needed. Provider guidance: https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
-3. Reconcile production migration history before merging PR 4 or allowing the old folder to replay. The existing Supabase main integration is MIGRATIONS_FAILED. No historical financial migration was replayed.
+Historical migration history remains unreconciled and the Supabase main integration reports MIGRATIONS_FAILED. Do not merge PR4 or replay old migrations until the supported history repair is reviewed and verified. Existing financial rows were not rewritten by the repair migrations; the deposit fingerprint remained e59a7b2deac458550369f39f7b3f3998 through those rollouts.
 
-Security advisors also report intended member/admin SECURITY DEFINER entry points and service-only tables with no member policies. Managed pg_net is non-relocatable and registered in public; its actual HTTP queue lives in net. The long-lived credential remains in Vault; only expiring signatures are queued. Remaining overlapping-policy/unused-index notices are advisory and are not a blanket security clearance.
+## Next verification
 
-## 31 October financial guard rollout
-
-The local production-schema fixture reproduced the previous cycle-zero request bypass. The new CLI-created migration 20261030190844_prevent_preactivation_profit_withdrawal.sql was applied twice in the isolated fixture, then installed in production after CI succeeded. Final-day legitimate payments still succeed once; premature, invalid-cycle, suspended and capital-return-held payments are denied. The dashboard cycle calculation and admin error messages match the guard.
-
-Production verification confirms the clamped cycle function and payment guards are installed. There are zero cycle-zero requests; existing deposit fingerprint remains e59a7b2deac458550369f39f7b3f3998. The release is READY on the live alias. The latest 24-hour grouped runtime-error review returned no reported errors; this cannot establish universal error freedom. The current browser/provider/migration-history launch checks above remain unresolved.
-
-## Inactive button repair — 31 October
-
-Active and Inactive now save directly; suspension retains confirmation. The current action has a check mark. API readback and UI response validation prevent false success, a 15-second request timeout bounds waiting, and status/error announcements are accessible. See INACTIVE_BUTTON_FIX_20261031.md for scope and test details.
-
-Actions 41118458733 passed all 103 regression tests with no failures/skips, 37 status checks, lint, types and production build. The new tests run actual admin button events through the actual POST handler and an isolated production-schema status RPC. First-click deactivation, reload persistence, reactivation, suspension/cancel, service failures and conflicting updates passed. Production deployment dpl_2Yjq4fsUrDkYgaFGVfHWM5wndSpU is READY on tdx-plum.vercel.app. No migration or live member-status test was performed. The production status RPC exists, service_role can execute it and authenticated members cannot. The deposit fingerprint remains unchanged.
-
-Chrome page text was readable during investigation, but screenshot/input operations failed and browser control stopped on URL verification. The new isolated component/API/database tests do not establish live Chrome layout or authenticated click coverage. The remaining launch checks above still apply.
+Deploy the invitation-only pilot pages, disable public self-signup in Supabase, save/verify its available password protections, and retest the final deployed access and UI. Public registration should require both an explicit app build setting and the separate hosted Auth setting before it can be reopened. No paid plan, hosting migration or subscription should be initiated.
