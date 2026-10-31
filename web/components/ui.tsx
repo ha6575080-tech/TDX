@@ -5,7 +5,6 @@ import { usePathname } from "next/navigation";
 import {
   Home,
   ListChecks,
-  BarChart3,
   MessageCircle,
   History,
   Target,

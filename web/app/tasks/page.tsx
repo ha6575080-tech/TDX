@@ -1,5 +1,7 @@
 "use client";
 
+import { pakistanDate } from "@/lib/dates";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -43,46 +45,42 @@ export default function TasksPage() {
   const [missedDays, setMissedDays] = useState(0);
   const [showDeductionPopup, setShowDeductionPopup] = useState(false);
   const [uploadingTaskId, setUploadingTaskId] = useState<string | null>(null);
-  const [allDone, setAllDone] = useState(false);
+  const suggestedComment = COMMENTS[(tasks[0]?.id.charCodeAt(0) ?? 0) % COMMENTS.length];
 
-  const loadTasks = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const {
+  const loadTasks = useCallback(() => supabase.auth.getUser().then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const {
         data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
+      } = loadedResponse;
+if (!user) {
         router.push("/login");
         return;
       }
-      setUserId(user.id);
-
-      const res = await fetch("/api/tasks/ensure", {
+setUserId(user.id);
+const res = await fetch("/api/tasks/ensure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user.id }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to load tasks");
-
-      setTasks(data.pendingTasks ?? []);
-      setMissedDays(data.missedDays ?? 0);
-      if ((data.missedDays ?? 0) > 0) {
+const data = await res.json();
+if (!res.ok) throw new Error(data.error ?? "Failed to load tasks");
+setTasks(data.pendingTasks ?? []);
+setMissedDays(data.missedDays ?? 0);
+if ((data.missedDays ?? 0) > 0) {
         setShowDeductionPopup(true);
       }
-    } catch (err) {
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load tasks.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, [router, supabase]);
+    }), [router, supabase]);
 
   useEffect(() => {
     loadTasks();
   }, [loadTasks]);
 
-  const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const todayStr = pakistanDate();
 
   const todayTasks = useMemo(
     () => tasks.filter((t) => t.task_date === todayStr),
@@ -93,14 +91,9 @@ export default function TasksPage() {
     [tasks, todayStr]
   );
 
-  const todayAllDone = useMemo(
-    () => todayTasks.length > 0 && todayTasks.every((t) => t.completed),
-    [todayTasks]
-  );
 
-  useEffect(() => {
-    if (todayAllDone) setAllDone(true);
-  }, [todayAllDone]);
+
+  const allDone = !loading && !error && tasks.length === 0 && userId !== null;
 
   const handleScreenshot = useCallback(
     async (task: PendingTask, file: File) => {
@@ -184,7 +177,7 @@ export default function TasksPage() {
           <p>
             {t("comment")}{" "}
             <span className="font-semibold text-secondary">
-              "{COMMENTS[Math.floor(Math.random() * COMMENTS.length)]}"
+              &ldquo;{suggestedComment}&rdquo;
             </span>
           </p>
         </div>

@@ -40,6 +40,22 @@ function friendlyForCode(code: string, fallback: string): string {
       return "One of the entered values is not in the expected format. Please check your phone number and username.";
     case "user_already_exists":
       return "An account with this phone/email already exists.";
+    case "invalid_credentials":
+    case "invalid_login_credentials":
+      return "The email/mobile or password is incorrect.";
+    case "email_not_confirmed":
+      return "Please confirm your email before signing in.";
+    case "weak_password":
+      return "Choose a stronger, unique password with at least 12 characters.";
+    case "over_request_rate_limit":
+    case "over_email_send_rate_limit":
+      return "Too many attempts. Please wait before trying again.";
+    case "signup_disabled":
+      return "Registration is currently unavailable. Please contact support.";
+    case "email_address_invalid":
+      return "Please enter a valid email address or mobile number.";
+    case "same_password":
+      return "Choose a different new password.";
     default:
       return fallback;
   }
@@ -59,13 +75,9 @@ export function extractErrorInfo(err: unknown, fallback = GENERIC): SafeErrorInf
       raw && raw !== "[object Object]" && !raw.includes("(\n<") ? raw : undefined;
 
     if (message || code || detail) {
-      const friendly = message
-        ? code
-          ? friendlyForCode(code, message)
-          : message
-        : code
-        ? friendlyForCode(code, fallback)
-        : fallback;
+      // Provider text can contain SQL or account details. Only known codes
+      // select UI copy; raw text is kept for diagnostic use only.
+      const friendly = code ? friendlyForCode(code, fallback) : fallback;
       return { message: message ?? fallback, code, detail, hint, friendly };
     }
 
@@ -74,10 +86,10 @@ export function extractErrorInfo(err: unknown, fallback = GENERIC): SafeErrorInf
 
   if (err instanceof Error) {
     const m = err.message;
-    if (m && m !== "[object Object]") return { message: m, friendly: m };
+    if (m && m !== "[object Object]") return { message: m, friendly: fallback };
   }
 
-  if (typeof err === "string" && err.trim() !== "") return { message: err, friendly: err };
+  if (typeof err === "string" && err.trim() !== "") return { message: err, friendly: fallback };
 
   return { message: fallback, friendly: fallback };
 }

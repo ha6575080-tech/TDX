@@ -1,0 +1,941 @@
+{
+  "tables": [
+    {
+      "name": "deposits",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, package_id uuid, amount numeric(12,2) NOT NULL, receipt_image_url text NOT NULL, status text DEFAULT 'pending'::text NOT NULL, ai_verdict text, ai_confidence numeric(5,2), admin_notes text, uploaded_at timestamp with time zone DEFAULT now() NOT NULL, approved_at timestamp with time zone, invoice_url text, created_by_agent uuid"
+    },
+    {
+      "name": "packages",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, package_name text NOT NULL, min_amount numeric(12,2) NOT NULL, max_amount numeric(12,2) NOT NULL, monthly_return_percent numeric(5,2) NOT NULL, yearly_return_percent numeric(5,2) NOT NULL, account_name text DEFAULT 'Saima Easy Paisa Account'::text NOT NULL, account_number text DEFAULT '0325-2879424'::text NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL"
+    },
+    {
+      "name": "withdrawals",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, amount numeric(12,2), fee numeric(12,2) DEFAULT 100, net_amount numeric(12,2), status text DEFAULT 'pending'::text NOT NULL, user_details jsonb, requested_at timestamp with time zone DEFAULT now() NOT NULL, processed_at timestamp with time zone, monthly_profit_rate numeric(3,1), cycle_number integer, cycle_start timestamp with time zone, cycle_end timestamp with time zone"
+    },
+    {
+      "name": "investment_returns",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, deposit_id uuid, status text DEFAULT 'requested'::text NOT NULL, requested_at timestamp with time zone DEFAULT now() NOT NULL, approved_at timestamp with time zone, amount numeric(12,2), returned_amount numeric(12,2), approved_by uuid, completed_at timestamp with time zone, completed_by uuid, expected_return_date timestamp with time zone, admin_notes text"
+    },
+    {
+      "name": "referrals",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, referrer_id uuid NOT NULL, referred_user_id uuid NOT NULL, bonus_amount numeric(12,2) DEFAULT 100 NOT NULL, status text DEFAULT 'pending'::text NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL"
+    },
+    {
+      "name": "tasks",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, task_date date NOT NULL, youtube_link text NOT NULL, screenshot_url text, completed boolean DEFAULT false NOT NULL, completed_at timestamp with time zone, deduction_applied boolean DEFAULT false NOT NULL"
+    },
+    {
+      "name": "messages",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, sender text NOT NULL, message text NOT NULL, is_read boolean DEFAULT false NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL, message_ur text"
+    },
+    {
+      "name": "profits",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, month integer NOT NULL, year integer NOT NULL, amount numeric(12,2) NOT NULL, status text DEFAULT 'pending'::text NOT NULL, payout_date timestamp with time zone, reminder_sent boolean DEFAULT false NOT NULL"
+    },
+    {
+      "name": "announcements",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, title text NOT NULL, content text NOT NULL, language text DEFAULT 'urdu'::text NOT NULL, created_by text, created_at timestamp with time zone DEFAULT now() NOT NULL, title_ur text, content_ur text"
+    },
+    {
+      "name": "profiles",
+      "columns": "id uuid NOT NULL, username text NOT NULL, full_name text NOT NULL, address text NOT NULL, city text NOT NULL, mobile_number text NOT NULL, email text, account_number text NOT NULL, payment_method text NOT NULL, profile_picture_url text, selfie_url text, referral_code text, referred_by text, referral_bonus numeric(12,2) DEFAULT 0 NOT NULL, is_active boolean DEFAULT false NOT NULL, is_suspended boolean DEFAULT false NOT NULL, profit_activation_date timestamp with time zone, package_id uuid, daily_tasks_failed integer DEFAULT 0 NOT NULL, total_deductions numeric(12,2) DEFAULT 0 NOT NULL, role text DEFAULT 'user'::text NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL, updated_at timestamp with time zone DEFAULT now() NOT NULL, selfie_verified boolean DEFAULT false NOT NULL, selfie_confidence numeric(5,2), selfie_verdict text, investment_amount numeric(12,2), whatsapp_number text, agent_id uuid"
+    },
+    {
+      "name": "notifications",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid, title text NOT NULL, title_ur text, message text NOT NULL, message_ur text, is_read boolean DEFAULT false, created_at timestamp with time zone DEFAULT timezone('utc'::text, now())"
+    },
+    {
+      "name": "push_subscriptions",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, endpoint text NOT NULL, p256dh text NOT NULL, auth text NOT NULL, created_at timestamp with time zone DEFAULT timezone('utc'::text, now())"
+    },
+    {
+      "name": "investment_upgrades",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, previous_amount numeric(12,2) NOT NULL, requested_amount numeric(12,2) NOT NULL, increase_amount numeric(12,2) NOT NULL, status text DEFAULT 'pending'::text NOT NULL, requested_at timestamp with time zone DEFAULT now() NOT NULL, activated_at timestamp with time zone, activated_after_entity text, activated_after_entity_id uuid, decided_by uuid, decided_at timestamp with time zone, decision_note text"
+    },
+    {
+      "name": "goals",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, user_id uuid NOT NULL, title text NOT NULL, target_amount numeric(14,2) NOT NULL, target_date date, description text, milestones_reached smallint DEFAULT 0 NOT NULL, created_at timestamp with time zone DEFAULT now() NOT NULL"
+    },
+    {
+      "name": "financial_audit_log",
+      "columns": "id bigint NOT NULL, entity text NOT NULL, entity_id uuid, user_id uuid, actor_id uuid, previous_status text, new_status text, amount numeric(14,2), note text, created_at timestamp with time zone DEFAULT now() NOT NULL"
+    },
+    {
+      "name": "notification_reads",
+      "columns": "notification_id uuid NOT NULL, user_id uuid NOT NULL, read_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL"
+    },
+    {
+      "name": "member_status_changes",
+      "columns": "id uuid DEFAULT gen_random_uuid() NOT NULL, member_id uuid NOT NULL, previous_status text NOT NULL, new_status text NOT NULL, changed_by uuid NOT NULL, reason text, created_at timestamp with time zone DEFAULT now() NOT NULL"
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profits",
+      "permissive": "PERMISSIVE",
+      "policyname": "profits read own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profits",
+      "permissive": "PERMISSIVE",
+      "policyname": "profits admin all",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "announcements",
+      "permissive": "PERMISSIVE",
+      "policyname": "announcements public read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "packages",
+      "permissive": "PERMISSIVE",
+      "policyname": "packages public read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "deposits",
+      "permissive": "PERMISSIVE",
+      "policyname": "deposits insert own",
+      "schemaname": "public",
+      "with_check": "(auth.uid() = user_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "deposits",
+      "permissive": "PERMISSIVE",
+      "policyname": "deposits read own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "deposits",
+      "permissive": "PERMISSIVE",
+      "policyname": "deposits admin all",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "withdrawals",
+      "permissive": "PERMISSIVE",
+      "policyname": "withdrawals insert own",
+      "schemaname": "public",
+      "with_check": "(auth.uid() = user_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "withdrawals",
+      "permissive": "PERMISSIVE",
+      "policyname": "withdrawals read own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "withdrawals",
+      "permissive": "PERMISSIVE",
+      "policyname": "withdrawals admin all",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "announcements",
+      "permissive": "PERMISSIVE",
+      "policyname": "announcements admin manage",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = referrer_id) OR (auth.uid() = referred_user_id))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "referrals",
+      "permissive": "PERMISSIVE",
+      "policyname": "referrals read involved",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "referrals",
+      "permissive": "PERMISSIVE",
+      "policyname": "referrals admin all",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "investment_returns",
+      "permissive": "PERMISSIVE",
+      "policyname": "returns insert own",
+      "schemaname": "public",
+      "with_check": "(auth.uid() = user_id)"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "investment_returns",
+      "permissive": "PERMISSIVE",
+      "policyname": "returns read own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "is_admin()",
+      "roles": [
+        "public"
+      ],
+      "tablename": "investment_returns",
+      "permissive": "PERMISSIVE",
+      "policyname": "returns admin all",
+      "schemaname": "public",
+      "with_check": "is_admin()"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "push_subscriptions",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users can manage own push subscriptions",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = user_id) OR (user_id IS NULL) OR is_admin())",
+      "roles": [
+        "public"
+      ],
+      "tablename": "notifications",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users see own or global notifications",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "notifications",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users can mark own notifications read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "push_subscriptions",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own push subs",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "deposits",
+      "permissive": "PERMISSIVE",
+      "policyname": "deposits_insert_own",
+      "schemaname": "public",
+      "with_check": "((user_id = auth.uid()) AND (status = 'pending'::text))"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_update_own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    },
+    {
+      "cmd": "DELETE",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_delete_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((user_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "tasks_select_own_or_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "tasks_insert_own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((auth.uid() = user_id) OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "deposits",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own deposits",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((auth.uid() = user_id) OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "withdrawals",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own withdrawals",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_insert_own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((auth.uid() = user_id) OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "profits",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own profits",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "ALL",
+      "qual": "((auth.uid() = user_id) OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "investment_returns",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own returns",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((auth.uid() = user_id) OR (user_id IS NULL) OR (EXISTS ( SELECT 1\n   FROM profiles\n  WHERE ((profiles.id = auth.uid()) AND (profiles.role = 'admin'::text)))))",
+      "roles": [
+        "public"
+      ],
+      "tablename": "notifications",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users see own notifications",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "notifications",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users mark own notifications read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "notifications",
+      "permissive": "PERMISSIVE",
+      "policyname": "System inserts notifications",
+      "schemaname": "public",
+      "with_check": "true"
+    },
+    {
+      "cmd": "ALL",
+      "qual": "(auth.uid() = user_id)",
+      "roles": [
+        "public"
+      ],
+      "tablename": "push_subscriptions",
+      "permissive": "PERMISSIVE",
+      "policyname": "Users manage own push subscriptions",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((user_id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "investment_upgrades",
+      "permissive": "PERMISSIVE",
+      "policyname": "upgrades_select_own_or_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "is_admin()",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "financial_audit_log",
+      "permissive": "PERMISSIVE",
+      "policyname": "audit_select_admin_only",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "goals",
+      "permissive": "PERMISSIVE",
+      "policyname": "goals_select_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "((id = auth.uid()) OR is_admin())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_select_own_or_admin",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_insert_self",
+      "schemaname": "public",
+      "with_check": "(id = auth.uid())"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "profiles",
+      "permissive": "PERMISSIVE",
+      "policyname": "profiles_update_own",
+      "schemaname": "public",
+      "with_check": "(id = auth.uid())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "messages",
+      "permissive": "PERMISSIVE",
+      "policyname": "messages_select_own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "messages",
+      "permissive": "PERMISSIVE",
+      "policyname": "messages_insert_own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    },
+    {
+      "cmd": "UPDATE",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "tasks",
+      "permissive": "PERMISSIVE",
+      "policyname": "tasks_update_own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "(user_id = auth.uid())",
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "notification_reads",
+      "permissive": "PERMISSIVE",
+      "policyname": "notification_reads select own",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "authenticated"
+      ],
+      "tablename": "notification_reads",
+      "permissive": "PERMISSIVE",
+      "policyname": "notification_reads insert own",
+      "schemaname": "public",
+      "with_check": "(user_id = auth.uid())"
+    }
+  ],
+  "constraints": [
+    {
+      "name": "deposits_ai_verdict_check",
+      "table": "deposits",
+      "definition": "CHECK ((ai_verdict = ANY (ARRAY['real'::text, 'fake'::text, 'uncertain'::text])))"
+    },
+    {
+      "name": "deposits_amount_range_check",
+      "table": "deposits",
+      "definition": "CHECK (((amount >= (5000)::numeric) AND (amount <= (2000000)::numeric)))"
+    },
+    {
+      "name": "deposits_created_by_agent_fkey",
+      "table": "deposits",
+      "definition": "FOREIGN KEY (created_by_agent) REFERENCES profiles(id)"
+    },
+    {
+      "name": "deposits_package_id_fkey",
+      "table": "deposits",
+      "definition": "FOREIGN KEY (package_id) REFERENCES packages(id)"
+    },
+    {
+      "name": "deposits_pkey",
+      "table": "deposits",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "deposits_status_check",
+      "table": "deposits",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])))"
+    },
+    {
+      "name": "deposits_user_id_fkey",
+      "table": "deposits",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "packages_pkey",
+      "table": "packages",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "withdrawals_monthly_profit_rate_allowed",
+      "table": "withdrawals",
+      "definition": "CHECK (((monthly_profit_rate IS NULL) OR (monthly_profit_rate = ANY (ARRAY[7.0, 8.0, 9.0, 10.0]))))"
+    },
+    {
+      "name": "withdrawals_pkey",
+      "table": "withdrawals",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "withdrawals_status_check",
+      "table": "withdrawals",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'approved'::text, 'completed'::text, 'rejected'::text])))"
+    },
+    {
+      "name": "withdrawals_user_id_fkey",
+      "table": "withdrawals",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "investment_returns_deposit_id_fkey",
+      "table": "investment_returns",
+      "definition": "FOREIGN KEY (deposit_id) REFERENCES deposits(id)"
+    },
+    {
+      "name": "investment_returns_pkey",
+      "table": "investment_returns",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "investment_returns_status_check",
+      "table": "investment_returns",
+      "definition": "CHECK ((status = ANY (ARRAY['requested'::text, 'approved'::text, 'completed'::text])))"
+    },
+    {
+      "name": "investment_returns_user_id_fkey",
+      "table": "investment_returns",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "referrals_pkey",
+      "table": "referrals",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "referrals_referred_user_id_fkey",
+      "table": "referrals",
+      "definition": "FOREIGN KEY (referred_user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "referrals_referrer_id_fkey",
+      "table": "referrals",
+      "definition": "FOREIGN KEY (referrer_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "referrals_status_check",
+      "table": "referrals",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'paid'::text])))"
+    },
+    {
+      "name": "tasks_pkey",
+      "table": "tasks",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "tasks_user_id_fkey",
+      "table": "tasks",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "tasks_user_id_task_date_youtube_link_key",
+      "table": "tasks",
+      "definition": "UNIQUE (user_id, task_date, youtube_link)"
+    },
+    {
+      "name": "messages_pkey",
+      "table": "messages",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "messages_sender_check",
+      "table": "messages",
+      "definition": "CHECK ((sender = ANY (ARRAY['user'::text, 'ai'::text, 'admin'::text, 'system'::text])))"
+    },
+    {
+      "name": "messages_user_id_fkey",
+      "table": "messages",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "profits_pkey",
+      "table": "profits",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "profits_status_check",
+      "table": "profits",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'paid'::text])))"
+    },
+    {
+      "name": "profits_user_id_fkey",
+      "table": "profits",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "profits_user_id_month_year_key",
+      "table": "profits",
+      "definition": "UNIQUE (user_id, month, year)"
+    },
+    {
+      "name": "announcements_language_check",
+      "table": "announcements",
+      "definition": "CHECK ((language = ANY (ARRAY['urdu'::text, 'english'::text])))"
+    },
+    {
+      "name": "announcements_pkey",
+      "table": "announcements",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "profiles_agent_id_fkey",
+      "table": "profiles",
+      "definition": "FOREIGN KEY (agent_id) REFERENCES profiles(id)"
+    },
+    {
+      "name": "profiles_id_fkey",
+      "table": "profiles",
+      "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "profiles_mobile_number_check",
+      "table": "profiles",
+      "definition": "CHECK ((mobile_number ~ '^03[0-9]{9}$'::text))"
+    },
+    {
+      "name": "profiles_package_id_fkey",
+      "table": "profiles",
+      "definition": "FOREIGN KEY (package_id) REFERENCES packages(id)"
+    },
+    {
+      "name": "profiles_payment_method_check",
+      "table": "profiles",
+      "definition": "CHECK ((payment_method = ANY (ARRAY['EASY PAISA'::text, 'JAZZ CASH'::text, 'NAYAPAY'::text, 'BANK'::text, 'UPAISA'::text, 'EASYPAISA'::text, 'JAZZCASH'::text])))"
+    },
+    {
+      "name": "profiles_pkey",
+      "table": "profiles",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "profiles_referral_code_key",
+      "table": "profiles",
+      "definition": "UNIQUE (referral_code)"
+    },
+    {
+      "name": "profiles_role_check",
+      "table": "profiles",
+      "definition": "CHECK ((role = ANY (ARRAY['user'::text, 'admin'::text, 'agent'::text])))"
+    },
+    {
+      "name": "profiles_username_key",
+      "table": "profiles",
+      "definition": "UNIQUE (username)"
+    },
+    {
+      "name": "notifications_pkey",
+      "table": "notifications",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "notifications_user_id_fkey",
+      "table": "notifications",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "push_subscriptions_pkey",
+      "table": "push_subscriptions",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "push_subscriptions_user_id_endpoint_key",
+      "table": "push_subscriptions",
+      "definition": "UNIQUE (user_id, endpoint)"
+    },
+    {
+      "name": "push_subscriptions_user_id_fkey",
+      "table": "push_subscriptions",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "investment_upgrades_amounts_positive",
+      "table": "investment_upgrades",
+      "definition": "CHECK (((previous_amount > (0)::numeric) AND (requested_amount > (0)::numeric) AND (increase_amount > (0)::numeric)))"
+    },
+    {
+      "name": "investment_upgrades_increase_matches",
+      "table": "investment_upgrades",
+      "definition": "CHECK ((increase_amount = (requested_amount - previous_amount)))"
+    },
+    {
+      "name": "investment_upgrades_pkey",
+      "table": "investment_upgrades",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "investment_upgrades_status_check",
+      "table": "investment_upgrades",
+      "definition": "CHECK ((status = ANY (ARRAY['pending'::text, 'active'::text, 'rejected'::text, 'cancelled'::text])))"
+    },
+    {
+      "name": "investment_upgrades_user_id_fkey",
+      "table": "investment_upgrades",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "goals_description_check",
+      "table": "goals",
+      "definition": "CHECK (((description IS NULL) OR (char_length(description) <= 500)))"
+    },
+    {
+      "name": "goals_pkey",
+      "table": "goals",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "goals_target_amount_check",
+      "table": "goals",
+      "definition": "CHECK (((target_amount > (0)::numeric) AND (target_amount <= (100000000)::numeric)))"
+    },
+    {
+      "name": "goals_title_check",
+      "table": "goals",
+      "definition": "CHECK (((char_length(btrim(title)) >= 1) AND (char_length(btrim(title)) <= 80)))"
+    },
+    {
+      "name": "goals_user_id_fkey",
+      "table": "goals",
+      "definition": "FOREIGN KEY (user_id) REFERENCES profiles(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "financial_audit_log_pkey",
+      "table": "financial_audit_log",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "notification_reads_notification_id_fkey",
+      "table": "notification_reads",
+      "definition": "FOREIGN KEY (notification_id) REFERENCES notifications(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "notification_reads_pkey",
+      "table": "notification_reads",
+      "definition": "PRIMARY KEY (notification_id, user_id)"
+    },
+    {
+      "name": "notification_reads_user_id_fkey",
+      "table": "notification_reads",
+      "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+    },
+    {
+      "name": "member_status_changes_changed_by_fkey",
+      "table": "member_status_changes",
+      "definition": "FOREIGN KEY (changed_by) REFERENCES auth.users(id)"
+    },
+    {
+      "name": "member_status_changes_member_fkey",
+      "table": "member_status_changes",
+      "definition": "FOREIGN KEY (member_id) REFERENCES profiles(id)"
+    },
+    {
+      "name": "member_status_changes_new_chk",
+      "table": "member_status_changes",
+      "definition": "CHECK ((new_status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text])))"
+    },
+    {
+      "name": "member_status_changes_pkey",
+      "table": "member_status_changes",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "name": "member_status_changes_previous_chk",
+      "table": "member_status_changes",
+      "definition": "CHECK ((previous_status = ANY (ARRAY['active'::text, 'inactive'::text, 'suspended'::text])))"
+    }
+  ]
+}

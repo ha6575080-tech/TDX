@@ -1,3 +1,5 @@
+import { relatedOne } from "@/lib/relations";
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -17,7 +19,7 @@ export async function GET() {
   const { data: profits, error: profitsError } = await supabase
     .from("profits")
     .select(
-      "id, user_id, month, year, amount, status, payout_date, profiles(full_name, username)"
+      "id, user_id, month, year, amount, status, payout_date, profiles!profits_user_id_fkey(full_name, username)"
     )
     .order("payout_date", { ascending: true })
     .limit(200);
@@ -29,7 +31,7 @@ export async function GET() {
   const now = Date.now();
   const fiveHours = 5 * 60 * 60 * 1000;
 
-  const parsed = (profits ?? []).map((p: any) => {
+  const parsed = (profits ?? []).map((p) => {
     const payoutTime = p.payout_date ? new Date(p.payout_date).getTime() : null;
     const dueSoon =
       p.status === "pending" &&
@@ -45,8 +47,8 @@ export async function GET() {
       status: p.status,
       payout_date: p.payout_date,
       dueSoon,
-      fullName: p.profiles?.full_name ?? "Unknown",
-      username: p.profiles?.username ?? "Unknown",
+      fullName: relatedOne(p.profiles)?.full_name ?? "Unknown",
+      username: relatedOne(p.profiles)?.username ?? "Unknown",
     };
   });
 
@@ -59,7 +61,7 @@ export async function POST(request: Request) {
 
   let body: { profitId?: string; action?: "payout" | "remind" };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -87,70 +89,7 @@ export async function POST(request: Request) {
     );
   }
 
-  if (action === "payout") {
-    // Cross-ledger guard: per-deposit payouts (payouts table) already represent
-    // the same economic event for this user/month. Prevent double representation
-    // via both profits and payouts for the same month.
-    const { data: existingPayoutsForMonth } = await supabase
-      .from("payouts")
-      .select("id")
-      .eq("user_id", profit.user_id)
-      .eq("month", profit.month)
-      .eq("year", profit.year)
-      .eq("status", "paid")
-      .limit(1);
-    if (existingPayoutsForMonth && existingPayoutsForMonth.length > 0) {
-      return NextResponse.json(
-        { error: "Payout already processed via per-deposit ledger for this user/month" },
-        { status: 409 }
-      );
-    }
-    // Withdrawal guard: if a withdrawal already completed and recorded a paid profit
-    // for this cycle month (via complete_profit_withdrawal), a pending profit for same
-    // month should not be marked again — the withdrawal already paid it.
-    // The status check below already handles same-row case; cross-row not possible due to
-    // unique(user_id,month,year) but keep for clarity.
-
-    // Idempotency: only a 'pending' profit may be marked paid. Re-submitting
-    // an already-paid payout updates zero rows and returns a conflict.
-    const { data: updatedRows, error: updateError } = await supabase
-      .from("profits")
-      .update({ status: "paid", payout_date: new Date().toISOString() })
-      .eq("id", profitId)
-      .eq("status", "pending")
-      .select("id");
-    if (updateError) {
-      return internalError("admin/payouts", updateError);
-    }
-    if (!updatedRows || updatedRows.length === 0) {
-      return NextResponse.json(
-        { error: "Payout is not pending — already processed." },
-        { status: 409 }
-      );
-    }
-
-    // AUTHORITATIVE "next payout paid" event: activate any pending
-    // investment upgrade now (server-side only; no-op when none exists).
-    await supabase.rpc("activate_pending_upgrade", {
-      p_user_id: profit.user_id,
-      p_entity: "payout",
-      p_entity_id: profitId,
-    });
-
-    const amount = profit.amount ?? 0;
-    const { error: msgError } = await supabase.from("messages").insert({
-      user_id: profit.user_id,
-      sender: "system",
-      message: `Congratulations! Your monthly profit of Rs ${amount} has been sent to your account.`,
-      message_ur: `مبارک ہو! آپ کا ${amount} روپے کا ماہانہ منافع آپ کے اکاؤنٹ میں بھیج دیا گیا ہے۔`,
-      is_read: false,
-    });
-    if (msgError) {
-      return internalError("admin/payouts", msgError);
-    }
-
-    return NextResponse.json({ success: true, status: "paid" });
-  }
+  if (action === "payout") return NextResponse.json({ error: "Complete the member monthly-profit withdrawal to record payment. This avoids recording the same payment twice." }, { status: 409 });
 
   if (action === "remind") {
     // Email admin listing upcoming payouts due soon.

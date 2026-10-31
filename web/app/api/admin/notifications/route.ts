@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -68,7 +69,7 @@ export async function POST(request: Request) {
     user_id?: string;
   };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -125,7 +126,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("is_active", true);
 
-    const rows = (profiles ?? []).map((p: any) => ({
+    const rows = (profiles ?? []).map((p) => ({
       user_id: p.id,
       title,
       message,

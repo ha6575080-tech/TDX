@@ -1,3 +1,5 @@
+import { relatedOne } from "@/lib/relations";
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -13,7 +15,7 @@ export async function GET() {
   const { data: withdrawals, error: withdrawalsError } = await supabase
     .from("withdrawals")
     .select(
-      "id, user_id, amount, fee, net_amount, status, user_details, requested_at, processed_at, monthly_profit_rate, cycle_number, cycle_start, cycle_end, profiles(full_name, username, mobile_number)"
+      "id, user_id, amount, fee, net_amount, status, user_details, requested_at, processed_at, monthly_profit_rate, cycle_number, cycle_start, cycle_end, profiles!withdrawals_user_id_fkey(full_name, username, mobile_number)"
     )
     .order("requested_at", { ascending: false })
     .limit(200);
@@ -53,9 +55,9 @@ export async function GET() {
     cycle_number: w.cycle_number,
     cycle_start: w.cycle_start,
     cycle_end: w.cycle_end,
-    fullName: w.profiles?.[0]?.full_name ?? "Unknown",
-    username: w.profiles?.[0]?.username ?? "Unknown",
-    mobile: w.profiles?.[0]?.mobile_number ?? "Unknown",
+    fullName: relatedOne(w.profiles)?.full_name ?? "Unknown",
+    username: relatedOne(w.profiles)?.username ?? "Unknown",
+    mobile: relatedOne(w.profiles)?.mobile_number ?? "Unknown",
   }));
 
   return NextResponse.json({ withdrawals: parsed });
@@ -71,7 +73,7 @@ export async function POST(request: Request) {
     monthlyProfitRate?: number;
   };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -142,8 +144,14 @@ export async function POST(request: Request) {
     };
 
     if (!result?.ok) {
+      const messages: Record<string, string> = {
+        account_suspended: "This member is suspended. Payment cannot be completed.",
+        return_investment_hold: "An investment-return request is holding this payment.",
+        not_eligible_30_days: "The member's profit cycle is not eligible for payment yet.",
+        invalid_profit_cycle: "This request has invalid cycle dates. Review it before proceeding.",
+      };
       return NextResponse.json(
-        { error: result?.reason ?? "Completion failed." },
+        { error: messages[result?.reason ?? ""] ?? result?.reason ?? "Completion failed." },
         { status: 409 }
       );
     }

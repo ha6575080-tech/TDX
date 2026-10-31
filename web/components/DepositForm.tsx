@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { pakistanDate } from "@/lib/dates";
+
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
@@ -19,7 +21,7 @@ type DepositMethod = "online_transfer" | "cash_agent" | null;
 
 export default function DepositForm() {
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   const [method, setMethod] = useState<DepositMethod>(null);
   const [amount, setAmount] = useState("");
@@ -41,9 +43,9 @@ export default function DepositForm() {
       try {
         const { data } = await supabase.from("payment_agents").select("id, name, is_active").eq("is_active", true);
         if (data && data.length > 0) {
-          setAgents(data.map((r: any) => ({ id: r.id, name: r.name })));
+          setAgents(data.map((r) => ({ id: r.id, name: r.name })));
           // ensure selectedAgent is valid
-          if (!data.find((r: any) => r.name === selectedAgent)) {
+          if (!data.find((r) => r.name === selectedAgent)) {
             setSelectedAgent(data[0].name);
           }
         }
@@ -54,7 +56,7 @@ export default function DepositForm() {
     loadAgents();
   }, [supabase, selectedAgent]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = pakistanDate();
 
   const canSubmitOnline = amountValid && receipt !== null;
   const canSubmitCash = amountValid && selectedAgent && paymentDate;
@@ -91,23 +93,20 @@ export default function DepositForm() {
       const { error: uploadError } = await supabase.storage.from("receipts").upload(receiptPath, receipt!, { upsert: true });
       if (uploadError) throw uploadError;
 
-      // 2. Lookup agent id for completeness (optional)
-      const agentRecord = agents.find((a) => a.name === selectedAgent);
 
       // 3. Create deposit record — online_transfer
-      const { data: deposit, error: depositError } = await supabase
-        .from("deposits")
-        .insert({
-          user_id: userId,
+      const createRes = await fetch("/api/deposits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           amount: amountNum,
           receipt_image_url: receiptPath,
-          status: "pending",
           payment_method: PAYMENT_METHODS.ONLINE_TRANSFER,
-        } as any)
-        .select("id")
-        .single();
-
-      if (depositError) throw depositError;
+        }),
+      });
+      const created = await createRes.json();
+      if (!createRes.ok) throw new Error(created.error ?? "Could not submit deposit.");
+      const deposit = created.deposit;
 
       // 4. Post-process (AI + admin notification/email)
       const res = await fetch("/api/deposit", {
@@ -116,8 +115,13 @@ export default function DepositForm() {
         body: JSON.stringify({ depositId: deposit.id }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to process deposit.");
+        setSuccess("Your deposit is saved and pending verification. Receipt processing is delayed; please do not submit it again.");
+        setAmount("");
+        setReceipt(null);
+        setPaymentDate("");
+        setShowCashConfirm(false);
+        router.refresh();
+        return;
       }
 
       setSuccess("Deposit submitted successfully! It is now pending verification.");
@@ -153,26 +157,24 @@ export default function DepositForm() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("You must be logged in.");
-      const userId = user.id;
 
       const agentRecord = agents.find((a) => a.name === selectedAgent);
 
-      const { data: deposit, error: depositError } = await supabase
-        .from("deposits")
-        .insert({
-          user_id: userId,
+      const createRes = await fetch("/api/deposits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           amount: amountNum,
-          status: "pending",
           payment_method: PAYMENT_METHODS.CASH_AGENT,
           cash_agent_name: selectedAgent,
           cash_agent_id: agentRecord?.id ?? null,
           cash_payment_date: paymentDate,
           receipt_image_url: null,
-        } as any)
-        .select("id")
-        .single();
-
-      if (depositError) throw depositError;
+        }),
+      });
+      const created = await createRes.json();
+      if (!createRes.ok) throw new Error(created.error ?? "Could not submit deposit.");
+      const deposit = created.deposit;
 
       // Trigger admin notification/email via same endpoint (it will branch on payment_method)
       const res = await fetch("/api/deposit", {
@@ -181,8 +183,13 @@ export default function DepositForm() {
         body: JSON.stringify({ depositId: deposit.id }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? "Failed to process cash deposit.");
+        setSuccess("Your deposit is saved and pending verification. Receipt processing is delayed; please do not submit it again.");
+        setAmount("");
+        setReceipt(null);
+        setPaymentDate("");
+        setShowCashConfirm(false);
+        router.refresh();
+        return;
       }
 
       setSuccess("Cash deposit submitted successfully! It is now pending verification.");

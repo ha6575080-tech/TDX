@@ -7,15 +7,22 @@ import { useI18n } from "@/lib/i18n";
 import { GlassPanel, GlowButton, LanguageToggle } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 import { PAYMENT_ACCOUNT } from "@/lib/investment";
+import type { User, Subscription } from "@supabase/supabase-js";
+import { PUBLIC_SIGNUP_ENABLED } from "@/lib/pilot-mode";
+import PilotWelcome from "@/components/PilotWelcome";
 
 export default function Home() {
+  return PUBLIC_SIGNUP_ENABLED ? <PublicHome /> : <PilotWelcome />;
+}
+
+function PublicHome() {
   const { t } = useI18n();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
-    let subscription: any = null;
+    let subscription: Subscription | null = null;
 
     async function checkAuth() {
       try {

@@ -1,7 +1,9 @@
+import { readJsonObject, isOwnedObjectPath } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { internalError } from "@/lib/api-errors";
+import { pickRandomLinks } from "@/lib/youtube-links";
 
 export async function POST(request: Request) {
   const { user, error } = await requireUser();
@@ -9,13 +11,13 @@ export async function POST(request: Request) {
 
   let body: { taskId?: string; userId?: string; path?: string };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const { taskId, userId, path } = body;
-  if (!taskId || !userId || !path) {
+  if (typeof taskId !== "string" || !taskId || typeof userId !== "string" || !userId || !path) {
     return NextResponse.json(
       { error: "taskId, userId and path are required" },
       { status: 400 }
@@ -33,7 +35,7 @@ export async function POST(request: Request) {
   // private object, path traversal ("../", nested segments), backslash
   // separators, and empty/odd segment names. (Uploads are independently
   // owner-scoped by storage RLS.)
-  if (typeof path !== "string" || !path.startsWith(`${userId}/`)) {
+  if (!isOwnedObjectPath(path, userId)) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
   const rel = path.slice(userId.length + 1);
@@ -43,39 +45,14 @@ export async function POST(request: Request) {
 
   const supabase = await createServiceRoleClient();
 
-  // Verify the task belongs to this user.
-  const { data: task, error: taskError } = await supabase
-    .from("tasks")
-    .select("id, user_id")
-    .eq("id", taskId)
-    .eq("user_id", userId)
-    .single();
-
-  if (taskError || !task) {
-    return NextResponse.json(
-      { error: "Task not found" },
-      { status: 404 }
-    );
+  const { data: result, error: rpcError } = await supabase.rpc("complete_member_task", {
+    p_user: user.id, p_task: taskId, p_path: path, p_links: pickRandomLinks(5),
+  });
+  if (rpcError) return internalError("tasks/complete", rpcError);
+  if (!result?.ok) {
+    const reason = result?.reason;
+    const status = reason === "account_suspended" ? 403 : reason === "task_not_found" ? 404 : 400;
+    return NextResponse.json({ error: reason === "invalid_evidence" ? "Upload your task screenshot before completing the task." : "Could not complete this task." }, { status });
   }
-
-  // PRIVATE bucket: store the Storage OBJECT PATH (not a permanent public URL —
-  // a getPublicUrl() link would be dead for a private bucket). Authorized
-  // viewers generate short-lived signed URLs from this path on demand:
-  //   owner  → storage RLS (view own task screenshot) + session-signed URL
-  //   admin  → POST /api/admin/receipt (allowlisted for task-screenshots)
-  const { error: updateError } = await supabase
-    .from("tasks")
-    .update({
-      completed: true,
-      completed_at: new Date().toISOString(),
-      screenshot_url: path,
-    })
-    .eq("id", taskId)
-    .eq("user_id", userId);
-
-  if (updateError) {
-    return internalError("tasks/complete", updateError);
-  }
-
-  return NextResponse.json({ success: true, screenshot_url: path });
+  return NextResponse.json({ success: true, screenshot_url: result.screenshot_url });
 }

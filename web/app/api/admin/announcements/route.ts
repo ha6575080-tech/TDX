@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
     id?: string;
   };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   const supabase = await createServiceRoleClient();
 
   if (body.action === "delete") {
-    if (!body.id) {
+    if (typeof body.id !== "string" || !body.id) {
       return NextResponse.json({ error: "id is required" }, { status: 400 });
     }
     const { error: deleteError } = await supabase
@@ -57,7 +58,7 @@ export async function POST(request: Request) {
   }
 
   // Publish
-  if (!body.title || !body.content) {
+  if (typeof body.title !== "string" || !body.title.trim() || body.title.length > 200 || typeof body.content !== "string" || !body.content.trim() || body.content.length > 10000 || (body.title_ur != null && (typeof body.title_ur !== "string" || body.title_ur.length > 200)) || (body.content_ur != null && (typeof body.content_ur !== "string" || body.content_ur.length > 10000))) {
     return NextResponse.json(
       { error: "title and content are required" },
       { status: 400 }

@@ -73,20 +73,18 @@ export default function FinancialHealthCard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/health-score", { cache: "no-store" });
-      const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error ?? "Could not load your health score.");
-      setData(body as HealthScoreData);
-    } catch (err) {
+  const load = useCallback(() => fetch("/api/health-score", { cache: "no-store" }).then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const res = loadedResponse;
+const body = await res.json().catch(() => null);
+if (!res.ok) throw new Error(body?.error ?? "Could not load your health score.");
+setData(body as HealthScoreData);
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Could not load your health score.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, []);
+    }), []);
 
   useEffect(() => {
     load();

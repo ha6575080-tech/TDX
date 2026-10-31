@@ -1,3 +1,4 @@
+import { relatedOne } from "@/lib/relations";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -35,7 +36,7 @@ export async function GET(
         "full_name, username, city, address, mobile_number, account_number, payment_method, is_active, is_suspended, created_at, profit_activation_date"
       )
       .order("created_at", { ascending: false });
-    rows = (data ?? []).map((u: any) => ({
+    rows = (data ?? []).map((u) => ({
       "Full Name": u.full_name ?? "",
       Username: u.username ?? "",
       City: u.city ?? "",
@@ -60,7 +61,7 @@ export async function GET(
       .order("uploaded_at", { ascending: false });
 
     const depRows = data ?? [];
-    const userIds = [...new Set(depRows.map((d: any) => d.user_id))];
+    const userIds = [...new Set(depRows.map((d) => d.user_id))];
     const profileMap = new Map<string, Record<string, unknown>>();
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
@@ -70,14 +71,14 @@ export async function GET(
       for (const p of profiles ?? []) profileMap.set(p.id, p);
     }
 
-    rows = depRows.map((d: any) => {
+    rows = depRows.map((d) => {
       const u = profileMap.get(d.user_id) ?? {};
       return {
       "Full Name": u.full_name ?? "",
       Username: u.username ?? "",
       Mobile: u.mobile_number ?? "",
       Amount: d.amount ?? 0,
-      Package: d.packages?.package_name ?? "",
+      Package: relatedOne(d.packages)?.package_name ?? "",
       Status: d.status ?? "",
       "AI Verdict": d.ai_verdict ?? "",
       "AI Confidence": d.ai_confidence ?? 0,
@@ -92,10 +93,10 @@ export async function GET(
         "amount, fee, net_amount, status, requested_at, profiles(full_name, username, mobile_number)"
       )
       .order("requested_at", { ascending: false });
-    rows = (data ?? []).map((w: any) => ({
-      "Full Name": w.profiles?.full_name ?? "",
-      Username: w.profiles?.username ?? "",
-      Mobile: w.profiles?.mobile_number ?? "",
+    rows = (data ?? []).map((w) => ({
+      "Full Name": relatedOne(w.profiles)?.full_name ?? "",
+      Username: relatedOne(w.profiles)?.username ?? "",
+      Mobile: relatedOne(w.profiles)?.mobile_number ?? "",
       Amount: w.amount ?? 0,
       Fee: w.fee ?? 0,
       Net: w.net_amount ?? 0,
@@ -110,9 +111,9 @@ export async function GET(
         "month, year, amount, status, payout_date, profiles(full_name, username)"
       )
       .order("payout_date", { ascending: true });
-    rows = (data ?? []).map((p: any) => ({
-      "Full Name": p.profiles?.full_name ?? "",
-      Username: p.profiles?.username ?? "",
+    rows = (data ?? []).map((p) => ({
+      "Full Name": relatedOne(p.profiles)?.full_name ?? "",
+      Username: relatedOne(p.profiles)?.username ?? "",
       Amount: p.amount ?? 0,
       Month: p.month ?? "",
       Year: p.year ?? "",

@@ -1,7 +1,9 @@
+import { readJsonObject, isOwnedObjectPath, isPastOrPresentDate } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { isValidDepositAmount } from "@/lib/investment";
+import { internalError } from "@/lib/api-errors";
 
 /**
  * POST /api/deposits — member deposit creation (authoritative server validation)
@@ -24,7 +26,7 @@ export async function POST(request: Request) {
     receipt_image_url?: string | null;
   };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -44,12 +46,14 @@ export async function POST(request: Request) {
 
   // Enforce payment-method specific requirements (mirrors DB CHECK deposits_cash_fields_check)
   if (paymentMethod === "cash_agent") {
-    if (!body.cash_agent_name || !body.cash_payment_date) {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
+    if (typeof body.cash_agent_name !== "string" || !body.cash_agent_name.trim() ||
+        !isPastOrPresentDate(body.cash_payment_date, today)) {
       return NextResponse.json({ error: "cash_agent_name and cash_payment_date are required for cash_agent" }, { status: 400 });
     }
   } else {
-    if (!body.receipt_image_url) {
-      return NextResponse.json({ error: "receipt_image_url is required for online_transfer" }, { status: 400 });
+    if (!isOwnedObjectPath(body.receipt_image_url, user.id)) {
+      return NextResponse.json({ error: "A receipt from your own account is required" }, { status: 400 });
     }
   }
 
@@ -63,8 +67,12 @@ export async function POST(request: Request) {
   };
 
   if (paymentMethod === "cash_agent") {
-    insertPayload.cash_agent_name = body.cash_agent_name;
-    insertPayload.cash_agent_id = body.cash_agent_id ?? null;
+    const { data: agent, error: agentError } = await supabase.from("payment_agents")
+      .select("id, name").eq("name", body.cash_agent_name!.trim()).eq("is_active", true).maybeSingle();
+    if (agentError) return internalError("deposits/agent", agentError);
+    if (!agent) return NextResponse.json({ error: "Please select an active payment agent" }, { status: 400 });
+    insertPayload.cash_agent_name = agent.name;
+    insertPayload.cash_agent_id = agent.id;
     insertPayload.cash_payment_date = body.cash_payment_date;
     insertPayload.receipt_image_url = null;
   } else {
@@ -84,7 +92,7 @@ export async function POST(request: Request) {
     if (code === "23514") {
       return NextResponse.json({ error: "Deposit amount must be between 5000 and 2000000" }, { status: 400 });
     }
-    return NextResponse.json({ error: insertError.message || "Failed to create deposit" }, { status: 500 });
+    return internalError("deposits", insertError);
   }
 
   return NextResponse.json({ ok: true, deposit: data }, { status: 200 });

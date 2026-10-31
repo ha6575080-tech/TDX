@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -66,7 +67,7 @@ export async function GET(request: Request) {
     .select("id, full_name, username, mobile_number")
     .in("id", userIds);
 
-  const users = (profiles ?? []).map((p: any) => ({
+  const users = (profiles ?? []).map((p) => ({
     id: p.id,
     fullName: p.full_name ?? "Unknown",
     username: p.username ?? "Unknown",
@@ -83,13 +84,13 @@ export async function POST(request: Request) {
 
   let body: { userId?: string; text?: string };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const { userId, text } = body;
-  if (!userId || !text || !text.trim()) {
+  if (typeof userId !== "string" || !userId || typeof text !== "string" || !text.trim() || text.length > 4000) {
     return NextResponse.json(
       { error: "userId and text are required" },
       { status: 400 }

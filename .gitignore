@@ -16,3 +16,10 @@ build/
 .env*
 # Exception: the placeholder template is version-controlled (never real values)
 !.env.example
+
+# Local audit tooling and machine-specific raw results
+.audit-tools/
+web/dependency-audit*.json
+web/lint-audit.json
+web/regression-results.txt
+.regression-artifacts/

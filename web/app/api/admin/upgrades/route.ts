@@ -1,3 +1,5 @@
+import { relatedOne } from "@/lib/relations";
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -12,7 +14,7 @@ export async function GET() {
   const { data: upgrades, error: upgradesError } = await supabase
     .from("investment_upgrades")
     .select(
-      "id, user_id, previous_amount, requested_amount, increase_amount, status, requested_at, activated_at, activated_after_entity, decided_at, decision_note, profiles(full_name, username, mobile_number)"
+      "id, user_id, previous_amount, requested_amount, increase_amount, status, requested_at, activated_at, activated_after_entity, decided_at, decision_note, profiles!investment_upgrades_user_id_fkey(full_name, username, mobile_number)"
     )
     .order("requested_at", { ascending: false })
     .limit(200);
@@ -21,7 +23,7 @@ export async function GET() {
     return internalError("admin/upgrades", upgradesError);
   }
 
-  const parsed = (upgrades ?? []).map((u: any) => ({
+  const parsed = (upgrades ?? []).map((u) => ({
     id: u.id,
     user_id: u.user_id,
     previous_amount: u.previous_amount,
@@ -33,9 +35,9 @@ export async function GET() {
     activated_after_entity: u.activated_after_entity,
     decided_at: u.decided_at,
     decision_note: u.decision_note,
-    fullName: u.profiles?.full_name ?? "Unknown",
-    username: u.profiles?.username ?? "Unknown",
-    mobile: u.profiles?.mobile_number ?? "Unknown",
+    fullName: relatedOne(u.profiles)?.full_name ?? "Unknown",
+    username: relatedOne(u.profiles)?.username ?? "Unknown",
+    mobile: relatedOne(u.profiles)?.mobile_number ?? "Unknown",
   }));
 
   return NextResponse.json({ upgrades: parsed });
@@ -48,7 +50,7 @@ export async function POST(request: Request) {
 
   let body: { upgradeId?: string; action?: "reject" };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }

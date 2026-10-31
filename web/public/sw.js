@@ -21,7 +21,13 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = event.notification.data?.url || "/";
+  let url = new URL("/", self.location.origin).href;
+  try {
+    const target = new URL(event.notification.data?.url || "/", self.location.origin);
+    if (target.origin === self.location.origin) url = target.href;
+  } catch {
+    // Invalid targets return to the application home page.
+  }
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {

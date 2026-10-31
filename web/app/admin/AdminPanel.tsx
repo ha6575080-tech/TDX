@@ -303,6 +303,13 @@ function printUser(u: UserRow): void {
   w.print();
 }
 
+async function readAdminJSON(url: string) {
+  const response = await fetch(url, { signal: AbortSignal.timeout(15000), cache: "no-store" });
+  const body = await response.json();
+  if (!response.ok || !body || typeof body !== "object" || Array.isArray(body)) throw new Error("Could not load admin records. Please refresh and try again.");
+  return body;
+}
+
 export default function AdminPanel() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("overview");
@@ -332,8 +339,7 @@ export default function AdminPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
-  // Super Admin member-status control: pending change awaiting confirmation
-  // (Suspend / Deactivate ask for confirmation; Activate applies directly).
+  // Only suspension waits for confirmation; Active and Inactive save directly.
   const [statusPending, setStatusPending] = useState<{
     user: UserRow;
     target: MemberStatus;
@@ -393,59 +399,45 @@ export default function AdminPanel() {
     }
   }
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [ov, us, dp, wd, an, po, rt, ug] = await Promise.all([
-        // Overview is fetched separately so a failure shows a clear
-        // error state instead of silently rendering seven zeroes — and
-        // does not block the rest of the admin data.
-        fetch("/api/admin/overview").then(async (r) => {
-          if (!r.ok) return { __error: "Unable to load overview metrics. Please refresh." };
-          return await r.json();
-        }),
-        fetch("/api/admin/users").then((r) => r.json()),
-        fetch("/api/admin/deposits").then((r) => r.json()),
-        fetch("/api/admin/withdrawals").then((r) => r.json()),
-        fetch("/api/admin/announcements").then((r) => r.json()),
-        fetch("/api/admin/payouts").then((r) => r.json()),
-        fetch("/api/admin/returns").then((r) => r.json()),
-        fetch("/api/admin/upgrades").then((r) => r.json()),
-      ]);
-      setOverview(
+  const loadAll = useCallback(() => Promise.all([
+      readAdminJSON("/api/admin/overview").catch(() => ({ __error: "Unable to load overview metrics. Please refresh." })),
+      ...["users", "deposits", "withdrawals", "announcements", "payouts", "returns", "upgrades"].map((section) => readAdminJSON("/api/admin/" + section)),
+    ]).then(async (loadedResponse) => {
+setLoading(true);
+setError(null);
+const [ov, us, dp, wd, an, po, rt, ug] = loadedResponse;
+setOverview(
         ov && typeof ov === "object" && "__error" in ov ? null : (ov as Overview)
       );
-      if (ov && typeof ov === "object" && "__error" in ov) {
+if (ov && typeof ov === "object" && "__error" in ov) {
         setError((ov as { __error: string }).__error);
       } else {
         setError(null);
       }
-      setUsers(us.users ?? []);
-      setDeposits(dp.deposits ?? []);
-      setWithdrawals(wd.withdrawals ?? []);
-      setAnnouncements(an.announcements ?? []);
-      setPayouts(po.payouts ?? []);
-      setReturns(rt.returns ?? []);
-      setUpgrades(ug.upgrades ?? []);
-    } catch (err) {
+setUsers(us.users ?? []);
+setDeposits(dp.deposits ?? []);
+setWithdrawals(wd.withdrawals ?? []);
+setAnnouncements(an.announcements ?? []);
+setPayouts(po.payouts ?? []);
+setReturns(rt.returns ?? []);
+setUpgrades(ug.upgrades ?? []);
+}).catch((err: unknown) => {
       setError(err instanceof Error ? err.message : "Failed to load admin data.");
-    } finally {
+    }).finally(() => {
       setLoading(false);
-    }
-  }, []);
+    }), []);
 
-  const loadNotifications = useCallback(async () => {
-    const res = await fetch("/api/admin/notifications");
+  const loadNotifications = useCallback(() => fetch("/api/admin/notifications", { signal: AbortSignal.timeout(15000) }).then(async (res) => {
     const data = await res.json();
-    if (res.ok) setNotifications(data.notifications ?? []);
-  }, []);
+    if (!res.ok) throw new Error("Could not load notifications");
+    setNotifications(data.notifications ?? []);
+  }).catch(() => setError("Could not load notifications.")), []);
 
-  const loadChatUsers = useCallback(async () => {
-    const res = await fetch("/api/admin/chat");
+  const loadChatUsers = useCallback(() => fetch("/api/admin/chat", { signal: AbortSignal.timeout(15000) }).then(async (res) => {
     const data = await res.json();
-    if (res.ok) setChatUsers(data.users ?? []);
-  }, []);
+    if (!res.ok) throw new Error("Could not load support messages");
+    setChatUsers(data.users ?? []);
+  }).catch(() => setError("Could not load support messages.")), []);
 
   useEffect(() => {
     loadAll();
@@ -494,9 +486,11 @@ export default function AdminPanel() {
     async (u: UserRow, target: MemberStatus, reason?: string) => {
       setStatusBusy(true);
       setError(null);
+      setActionMsg(null);
       try {
         const res = await fetch("/api/admin/users", {
           method: "POST",
+          signal: AbortSignal.timeout(15000),
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userId: u.id,
@@ -508,6 +502,10 @@ export default function AdminPanel() {
         const data = await res.json();
         if (!res.ok) {
           setError(data.error ?? "Failed to change member status");
+          return;
+        }
+        if (data.success !== true || typeof data.is_active !== "boolean" || typeof data.is_suspended !== "boolean" || deriveMemberStatus(data) !== target) {
+          setError("The requested status was not saved. Refresh the users list and try again.");
           return;
         }
         setUsers((prev) =>
@@ -538,17 +536,17 @@ export default function AdminPanel() {
     [t, statusHistoryUser, loadStatusHistory]
   );
 
-  // Entry point from the row buttons. Activate applies immediately;
-  // Suspend / Deactivate (Inactive) ask for confirmation first, per policy.
+  // Active and Inactive are reversible status changes and save directly.
+  // Suspension still requires confirmation before blocking member access.
   const requestStatus = useCallback(
     (u: UserRow, target: MemberStatus) => {
       const current = deriveMemberStatus(u);
       if (current === target) return;
-      if (target === "active") {
-        applyStatus(u, "active");
-      } else {
+      if (target === "suspended") {
         setStatusReason("");
         setStatusPending({ user: u, target });
+      } else {
+        applyStatus(u, target);
       }
     },
     [applyStatus]
@@ -566,7 +564,7 @@ export default function AdminPanel() {
         setError(data.error ?? "Failed to reset password");
         return;
       }
-      setActionMsg(`Temporary password: ${data.temporaryPassword} (shown once)`);
+      setActionMsg(`New password: ${data.temporaryPassword} (shown once). Ask the member to change it in Settings.`);
     },
     []
   );
@@ -862,12 +860,12 @@ export default function AdminPanel() {
         </div>
 
         {actionMsg && (
-          <div className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 text-sm text-primary">
+          <div role="status" className="rounded-lg bg-primary/10 border border-primary/30 px-4 py-3 text-sm text-primary">
             {actionMsg}
           </div>
         )}
         {error && (
-          <div className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
+          <div role="alert" className="rounded-lg bg-error/10 border border-error/30 px-4 py-3 text-sm text-error">
             {error}
           </div>
         )}
@@ -1004,7 +1002,7 @@ export default function AdminPanel() {
                   <Download className="w-3 h-3" /> {t("export")}
                 </button>
                 <span className="h-9 flex items-center rounded-lg bg-surface-bright px-3 text-xs font-semibold text-on-surface-variant">
-                  <Printer className="w-3 h-3 mr-1" /> {t("printPdf")}: use the print button in a user's Actions column
+                  <Printer className="w-3 h-3 mr-1" /> {t("printPdf")}: use the print button in a user&apos;s Actions column
                 </span>
               </div>
             </div>
@@ -1059,8 +1057,8 @@ export default function AdminPanel() {
                           </button>
                           {/* Status controls: Active / Inactive / Suspended.
                               The CURRENT status is highlighted + disabled;
-                              Suspend/Inactive ask for confirmation; Activate
-                              applies immediately. Works for ANY member
+                              Active/Inactive save directly; suspension asks
+                              for confirmation. Works for ANY member
                               regardless of deposits or receipts. */}
                           {(["active", "inactive", "suspended"] as const).map((s) => {
                             const isCurrent = deriveMemberStatus(u) === s;
@@ -1088,6 +1086,7 @@ export default function AdminPanel() {
                                     : "bg-surface-bright text-on-surface-variant border border-outline-variant/40 hover:bg-surface-container-high"
                                 }`}
                               >
+                                {isCurrent && <Check aria-hidden="true" className="w-3 h-3 mr-1 inline" />}
                                 {statusLabel(t, s)}
                               </button>
                             );
@@ -1127,7 +1126,7 @@ export default function AdminPanel() {
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="font-bold text-on-surface">{d.fullName} <span className="text-xs font-normal text-on-surface-variant">@{d.username}</span></p>
-                      <p className="text-xs text-on-surface-variant">{d.mobile} · Submitted: {fmtDate(d.created_at ?? (d as any).uploaded_at)}</p>
+                      <p className="text-xs text-on-surface-variant">{d.mobile} · Submitted: {fmtDate(d.created_at ?? d.uploaded_at)}</p>
                     </div>
                     <div className="text-right">
                       <p className="font-bold text-primary">{fmtPKR(d.amount)}</p>
@@ -1189,7 +1188,7 @@ export default function AdminPanel() {
                           }`}>{d.ai_verdict || "unsure"}</span>
                         </td>
                         <td className="px-3 py-2"><span className={statusBadgeCls(d.status)}>{d.status}</span></td>
-                        <td className="px-3 py-2">{fmtDate((d as any).uploaded_at ?? d.created_at)}</td>
+                        <td className="px-3 py-2">{fmtDate(d.uploaded_at ?? d.created_at)}</td>
                         <td className="px-3 py-2">
                           <button
                             onClick={() => openReceiptModal("deposit", d.id)}
@@ -1387,7 +1386,7 @@ export default function AdminPanel() {
             <div>
               <h2 className="mb-3 text-lg font-bold text-secondary">{t("payouts")}</h2>
               <p className="mb-3 rounded-lg bg-surface-container-low border border-outline-variant/30 px-3 py-2 text-xs text-on-surface-variant">
-                Per-user monthly profit ledger (profits). Per-deposit payouts are processed via <code className="px-1 py-0.5 bg-surface-bright rounded">/api/admin/payouts/process</code> (payouts table) — same user/month cannot be paid via both ledgers.
+                Payment history is recorded automatically when a monthly profit withdrawal is completed. Review withdrawals to record a payment.
               </p>
               {pendingPayouts.length === 0 && (
                 <GlassPanel className="p-6"><p className="text-sm text-on-surface-variant">{t("noPendingPayouts")}</p></GlassPanel>
@@ -1413,8 +1412,8 @@ export default function AdminPanel() {
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <button onClick={() => handlePayout(p, "payout")} className="btn-3d-lime h-9 rounded-lg px-4 text-sm font-bold">
-                      <Check className="w-4 h-4 mr-1 inline" /> {t("payoutSent")}
+                    <button onClick={() => setTab("withdrawals")} className="btn-3d-lime h-9 rounded-lg px-4 text-sm font-bold">
+                      Review withdrawals
                     </button>
                     {p.dueSoon && (
                       <button onClick={() => handlePayout(p, "remind")} className="h-9 rounded-lg bg-secondary/10 px-4 text-sm font-semibold text-secondary border border-secondary/30 hover:bg-secondary/20">
@@ -1577,7 +1576,7 @@ export default function AdminPanel() {
                     </div>
                   </div>
                   <p className="mb-3 rounded bg-[#0B2E1F]/5 px-3 py-2 text-xs text-on-surface-variant">
-                    This upgrade becomes effective automatically after the member's next completed withdrawal or paid profit.
+                    This upgrade becomes effective automatically after the member&apos;s next completed withdrawal or paid profit.
                   </p>
                   <div className="flex flex-wrap items-center gap-2">
                     <button onClick={() => handleUpgradeReject(u)} className="btn-danger-3d h-9 rounded-lg px-4 text-sm font-semibold">
@@ -1869,7 +1868,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Status change CONFIRMATION modal — Suspend / Deactivate only */}
+      {/* Status change confirmation — suspension only */}
       {statusPending && (
         <div
           className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm overflow-y-auto p-6"

@@ -23,10 +23,7 @@ export default function GlobalChatBubble() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const load = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+  const load = useCallback(() => supabase.auth.getUser().then(async ({ data: { user } }) => {
     if (!user) return;
     setUserId(user.id);
     const { data } = await supabase
@@ -36,7 +33,7 @@ export default function GlobalChatBubble() {
       .order("created_at", { ascending: true })
       .limit(50);
     setMessages((data ?? []) as ChatMessage[]);
-  }, [supabase]);
+  }), [supabase]);
 
   useEffect(() => {
     if (open) load();

@@ -13,16 +13,18 @@ function envIsConfigured(): boolean {
   return urlOk && keyOk;
 }
 
-const PROTECTED_PATHS = ["/dashboard", "/admin", "/statistics", "/tasks"];
+const PROTECTED_PATHS = ["/dashboard", "/admin", "/statistics", "/tasks", "/activity", "/agents", "/chat", "/goals", "/invoice", "/profile", "/settings", "/simulator", "/statement"];
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  // If env keys are still placeholders (not configured yet), skip session
-  // handling entirely so the app runs fine with static demo data.
+  // Configuration failure must not bypass protection on member pages.
   if (!envIsConfigured()) {
+    if (PROTECTED_PATHS.some((p) => request.nextUrl.pathname === p || request.nextUrl.pathname.startsWith(`${p}/`))) {
+      return NextResponse.json({ error: "Service temporarily unavailable" }, { status: 503, headers: { "Cache-Control": "private, no-store" } });
+    }
     return supabaseResponse;
   }
 
@@ -68,7 +70,9 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => response.cookies.set(cookie));
+    return response;
   }
 
   // If there is a user, but no session, refresh the session via the cookie.

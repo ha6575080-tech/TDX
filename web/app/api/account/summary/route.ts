@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
+import { calculateProfitCycle } from "@/lib/profit-cycle";
 import { computeSummaryTotals } from "@/lib/account-summary";
 import { internalError } from "@/lib/api-errors";
 
@@ -11,9 +12,8 @@ import { internalError } from "@/lib/api-errors";
  * All balance math happens here, server-side — the browser only displays
  * these numbers and must never construct them itself.
  *
- * The math itself lives in lib/account-summary.ts (pure code motion —
- * expressions are verbatim-identical to the previous inline version) so
- * that goal progress can reuse the exact same authoritative numbers.
+ * Shared booked-balance math lives in lib/account-summary.ts so goal
+ * progress and dashboard balances use the same financial records.
  */
 export async function GET() {
   const { user, error } = await requireUser();
@@ -65,8 +65,7 @@ export async function GET() {
           "id, amount, returned_amount, status, requested_at, approved_at, expected_return_date, completed_at"
         )
         .eq("user_id", userId)
-        .order("requested_at", { ascending: false })
-        .limit(1),
+        .order("requested_at", { ascending: false }),
       // Pending (or latest) investment upgrade.
       supabase
         .from("investment_upgrades")
@@ -78,6 +77,8 @@ export async function GET() {
         .limit(1),
     ]);
 
+  const queryFailure = [depositsRes, profitsRes, withdrawalsRes, returnsRes, upgradesRes].find((result) => result.error);
+  if (queryFailure?.error) return internalError("account/summary", queryFailure.error);
   const profile = profileRes.data;
   const deposits = depositsRes.data ?? [];
   const profits = profitsRes.data ?? [];
@@ -94,7 +95,7 @@ export async function GET() {
     totalBalance,
     withdrawableBalance,
     activeInvestment: summaryActiveInvestment,
-  } = computeSummaryTotals(profile, deposits, profits, withdrawals);
+  } = computeSummaryTotals(profile, deposits, profits, withdrawals, returnsRes.data ?? []);
 
   const activeInvestment = summaryActiveInvestment;
 
@@ -131,21 +132,7 @@ export async function GET() {
     if (anchors.length > 0) anchorMs = Math.min(...anchors);
   }
 
-  if (anchorMs != null) {
-    const nowMs = Date.now();
-    const DAY = 24 * 60 * 60 * 1000;
-    const cycleIndex = Math.floor((nowMs - anchorMs) / (30 * DAY));
-    const cycleStartMs = anchorMs + cycleIndex * 30 * DAY;
-    const cycleEndMs = cycleStartMs + 30 * DAY;
-    const actionableAtMs = cycleEndMs - DAY;
-    cycle = {
-      cycleNumber: cycleIndex + 1,
-      cycleStart: new Date(cycleStartMs).toISOString(),
-      cycleEnd: new Date(cycleEndMs).toISOString(),
-      actionableAt: new Date(actionableAtMs).toISOString(),
-      actionableNow: nowMs >= actionableAtMs,
-    };
-  }
+  if (activeInvestment > 0) cycle = calculateProfitCycle(anchorMs);
 
   return NextResponse.json({
     profile,

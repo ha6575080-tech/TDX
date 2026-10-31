@@ -51,7 +51,6 @@ export default function GoalsPage() {
   const { lang } = useI18n();
   const isUr = lang === "ur";
   const [goals, setGoals] = useState<Goal[] | null>(null);
-  const [currentAmount, setCurrentAmount] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -65,24 +64,21 @@ export default function GoalsPage() {
   const [targetDate, setTargetDate] = useState("");
   const [description, setDescription] = useState("");
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch("/api/goals");
-      const data = await res.json().catch(() => null);
-      if (!res.ok) {
+  const load = useCallback(() => fetch("/api/goals").then(async (loadedResponse) => {
+setError(null);
+const res = loadedResponse;
+const data = await res.json().catch(() => null);
+if (!res.ok) {
         const info = extractErrorInfo(data?.error ?? null, "Could not load your goals.");
         setError(info.friendly + (data?.setup_pending ? (isUr ? " (ڈیٹا بیس سیٹ اپ زیر التوا)" : " (database setup pending)") : ""));
         setGoals([]);
         return;
       }
-      setGoals(data.goals ?? []);
-      setCurrentAmount(Number(data.current_amount ?? 0));
-    } catch {
+setGoals(data.goals ?? []);
+}).catch(() => {
       setError(isUr ? "نیٹ ورک کا مسئلہ۔ دوبارہ کوشش کریں۔" : "A network problem occurred. Please try again.");
       setGoals([]);
-    }
-  }, [isUr]);
+    }), [isUr]);
 
   useEffect(() => { load(); }, [load]);
 

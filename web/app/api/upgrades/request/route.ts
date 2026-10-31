@@ -1,3 +1,4 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
 
   let body: { newAmount?: number };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -65,6 +66,8 @@ export async function POST(request: Request) {
 
   if (!result?.ok) {
     switch (result?.reason) {
+      case "unfunded_upgrade":
+        return NextResponse.json({ error: "The new investment amount must be covered by approved deposits and cannot exceed PKR 2,000,000. Please add funds first." }, { status: 409 });
       case "duplicate_pending_upgrade":
         return NextResponse.json(
           { error: "You already have a pending investment upgrade." },

@@ -40,8 +40,7 @@ export default function AgentPortalPage() {
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  const loadMembers = useCallback(async () => {
-    const r = await fetch("/api/agents/onboard");
+  const loadMembers = useCallback(() => fetch("/api/agents/onboard", { signal: AbortSignal.timeout(15000) }).then(async (r) => {
     if (r.status === 401) {
       router.push("/login");
       return;
@@ -52,10 +51,11 @@ export default function AgentPortalPage() {
       return;
     }
     const json = await r.json();
+    if (!r.ok) throw new Error(json.error || "Could not load members");
     setIsAgent(true);
     setMembers(json.members ?? []);
     setChecking(false);
-  }, [router]);
+  }).catch(() => { setChecking(false); setFeedback({ ok: false, msg: "Could not load members. Please try again." }); }), [router]);
 
   useEffect(() => {
     loadMembers();

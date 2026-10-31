@@ -1,59 +1,13 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) throw new Error('supabaseUrl is required.');
-  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
-}
-
+import { internalError } from "@/lib/api-errors";
 export async function GET() {
-  const { user, error } = await requireUser();
-  if (error) return error;
-
-  const { data: profile } = await getSupabaseAdmin()
-    .from("profiles")
-    .select("full_name, username, mobile_number, city, status, created_at")
-    .eq("id", user!.id)
-    .single();
-
-  const { data: deposits } = await getSupabaseAdmin()
-    .from("deposits")
-    .select("id, amount, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const { data: payouts } = await getSupabaseAdmin()
-    .from("payouts")
-    .select("id, amount, percentage_applied, month, year, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const { data: withdrawals } = await getSupabaseAdmin()
-    .from("withdrawals")
-    .select("id, amount, status, created_at")
-    .eq("user_id", user!.id)
-    .order("created_at", { ascending: false });
-
-  const totalDeposited = (deposits || [])
-    .filter((d: { status: string; amount: number }) => d.status === "approved")
-    .reduce((s: number, d) => s + d.amount, 0);
-  const totalPayouts = (payouts || [])
-    .filter((p: { status: string; amount: number }) => p.status === "paid")
-    .reduce((s: number, p) => s + p.amount, 0);
-  const totalWithdrawn = (withdrawals || [])
-    .filter((w: { status: string; amount: number }) =>
-      ["approved", "completed"].includes(w.status)
-    )
-    .reduce((s: number, w) => s + w.amount, 0);
-
-  return NextResponse.json({
-    profile,
-    deposits: deposits || [],
-    payouts: payouts || [],
-    withdrawals: withdrawals || [],
-    summary: { totalDeposited, totalPayouts, totalWithdrawn },
-  });
+  const {error}=await requireUser();
+  if(error)return error;
+  const client=await createClient();
+  const result=await client.rpc("member_statement_snapshot");
+  if(result.error)return internalError("statements",result.error);
+  if(!result.data)return NextResponse.json({error:"Statement unavailable"},{status:404});
+  return NextResponse.json(result.data,{headers:{"Cache-Control":"private, no-store"}});
 }

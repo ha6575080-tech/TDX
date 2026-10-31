@@ -1,5 +1,6 @@
+import { readJsonObject } from "@/lib/request-validation";
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { requireUser } from "@/lib/auth";
 import { extractErrorInfo } from "@/lib/errors";
 import { computeSummaryTotals } from "@/lib/account-summary";
@@ -31,7 +32,7 @@ export async function GET() {
 
   const supabase = await createClient();
 
-  const [goalsRes, profileRes, depositsRes, profitsRes, withdrawalsRes] =
+  const [goalsRes, profileRes, depositsRes, profitsRes, withdrawalsRes, returnsRes] =
     await Promise.all([
       supabase
         .from("goals")
@@ -47,6 +48,7 @@ export async function GET() {
       supabase.from("deposits").select("amount, status").eq("user_id", userId),
       supabase.from("profits").select("amount, status").eq("user_id", userId),
       supabase.from("withdrawals").select("amount, status").eq("user_id", userId),
+      supabase.from("investment_returns").select("amount, status").eq("user_id", userId),
     ]);
 
   if (goalsRes.error) {
@@ -64,13 +66,16 @@ export async function GET() {
   if (profileRes.error) {
     return internalError("goals", profileRes.error);
   }
+  const summaryError = depositsRes.error ?? profitsRes.error ?? withdrawalsRes.error ?? returnsRes.error;
+  if (summaryError) return internalError("goals", summaryError);
 
   // Authoritative progress basis — same numbers as the dashboard summary.
   const summary = computeSummaryTotals(
     profileRes.data,
     depositsRes.data ?? [],
     profitsRes.data ?? [],
-    withdrawalsRes.data ?? []
+    withdrawalsRes.data ?? [],
+    returnsRes.data ?? []
   );
   const currentAmount = Math.max(0, summary.totalBalance);
 
@@ -134,7 +139,8 @@ export async function GET() {
     });
     // Best-effort — never block the goals response on notification inserts,
     // but log failures so silent notification loss is visible to operators.
-    const { error: milestoneNotifError } = await supabase
+    const notificationClient = await createServiceRoleClient();
+    const { error: milestoneNotifError } = await notificationClient
       .from("notifications")
       .insert(notifRows);
     if (milestoneNotifError) {
@@ -164,7 +170,7 @@ export async function POST(request: Request) {
 
   let body: { title?: unknown; target_amount?: unknown; target_date?: unknown; description?: unknown };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid request." }, { status: 400 });
   }

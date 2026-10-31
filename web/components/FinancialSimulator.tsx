@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { FlaskConical, Info, TrendingUp, Target, CheckCircle2, Clock } from "lucide-react";
 import { GlassPanel } from "@/components/ui";
 import {
-  LIMITS,
   runSimulation,
   sanitizeInput,
   type SimulatorInput,
@@ -21,11 +20,7 @@ function fmtPKR(n: number): string {
   return `${Math.round(n).toLocaleString("en-PK")} PKR`;
 }
 
-function monthLabel(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() + months);
-  return d.toLocaleDateString("en-PK", { month: "short", year: "numeric" });
-}
+
 
 function ScenarioLineChart({
   scenarios,
@@ -117,18 +112,13 @@ function Control({
   const [text, setText] = useState(fmtNumber(value));
   const [focused, setFocused] = useState(false);
 
-  // Sync the text box when the value changes externally (e.g., slider drag).
-  useEffect(() => {
-    if (!focused) setText(fmtNumber(value));
-  }, [value, focused]);
-
   const commit = (raw: string) => {
     setText(raw);
     const n = Number(raw);
     if (raw.trim() !== "" && Number.isFinite(n)) onChange(n);
   };
 
-  const pct = max > min ? ((value - min) / (max - min)) * 100 : 0;
+
 
   return (
     <div>
@@ -146,9 +136,9 @@ function Control({
           type="text"
           inputMode="numeric"
           aria-label={label}
-          value={text}
+          value={focused ? text : fmtNumber(value)}
           onChange={(e) => commit(e.target.value)}
-          onFocus={() => setFocused(true)}
+          onFocus={() => { setText(fmtNumber(value)); setFocused(true); }}
           onBlur={() => setFocused(false)}
           className={`h-10 w-full rounded-lg border border-outline-variant/50 bg-surface-container-low px-3 text-sm text-on-surface outline-none focus:border-primary ${
             prefix ? "pl-9" : ""

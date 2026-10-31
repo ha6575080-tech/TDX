@@ -1,3 +1,5 @@
+import { readJsonObject, isUuid } from "@/lib/request-validation";
+import { randomBytes } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -112,11 +114,18 @@ async function fallbackDirectStatusChange(
     return { error: internalError("admin/users", updateError), response: null };
   }
 
-  const { data: updated } = await supabase
+  const { data: updated, error: readError } = await supabase
     .from("profiles")
     .select("is_active, is_suspended")
     .eq("id", userId)
     .single();
+
+  if (readError || !updated) {
+    return { error: internalError("admin/users", readError ?? new Error("Status readback missing")), response: null };
+  }
+  if (deriveMemberStatus(updated) !== target) {
+    return { error: NextResponse.json({ error: "The requested status was not saved. Refresh the users list and try again." }, { status: 409 }), response: null };
+  }
 
   return {
     error: null,
@@ -125,8 +134,8 @@ async function fallbackDirectStatusChange(
       changed: true,
       status: target,
       previous_status: previous,
-      is_active: updated?.is_active ?? false,
-      is_suspended: updated?.is_suspended ?? false,
+      is_active: updated.is_active,
+      is_suspended: updated.is_suspended,
     }),
   };
 }
@@ -171,15 +180,15 @@ export async function POST(request: Request) {
     reason?: string;
   };
   try {
-    body = await request.json();
+    body = await readJsonObject(request);
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
   const { userId, action } = body;
-  if (!userId || !action) {
+  if (!isUuid(userId) || !action) {
     return NextResponse.json(
-      { error: "userId and action are required" },
+      { error: "A valid userId and action are required" },
       { status: 400 }
     );
   }
@@ -273,28 +282,28 @@ export async function POST(request: Request) {
       .select("is_active, is_suspended")
       .eq("id", userId)
       .single();
-    if (readError) {
-      return internalError("admin/users", readError);
+    if (readError || !updated) {
+      return internalError("admin/users", readError ?? new Error("Status readback missing"));
+    }
+    if (deriveMemberStatus(updated) !== target) {
+      return NextResponse.json({ error: "The requested status was not saved. Refresh the users list and try again." }, { status: 409 });
     }
 
     return NextResponse.json({
       success: true,
       changed: res.changed,
-      status: res.status,
+      status: deriveMemberStatus(updated),
       previous_status: res.previous_status,
-      is_active: updated?.is_active ?? false,
-      is_suspended: updated?.is_suspended ?? false,
+      is_active: updated.is_active,
+      is_suspended: updated.is_suspended,
     });
   }
 
   if (action === "reset_password") {
     // Generate a temporary password and show it to the admin once.
-    const temp = Array.from(
-      { length: 8 },
-      () => "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"[
-        Math.floor(Math.random() * 62)
-      ]
-    ).join("");
+    // 192 random bits, with all character classes represented for provider
+    // policies. Never log this credential or use Math.random for passwords.
+    const temp = `Td9!${randomBytes(24).toString("base64url")}`;
 
     const { error } = await supabase.auth.admin.updateUserById(userId, {
       password: temp,
